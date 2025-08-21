@@ -1,41 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
 :root {
-	--color-primary: #00BABC;
-	--color-secondary: #075959;
-	--color-accent: #e63946;
-	--color-bg: #171717;
-	--color-text: #FAFAFA;
+	/* Couleurs principales : */
+	--white-primary: 255, 255, 255; /* #FFFFFF */
+	--white-bg: 250, 250, 250; /* #FAFAFA */
+	--gray: 234, 234, 234; /* #EAEAEA */
+	--gray-sidebar: 41, 45, 57; /* #292D39 */
+	--black-primary: 23, 23, 23; /* #171717 */
+	--black-bg: 51, 51, 51; /* #333333 */
+	--black-sidebar: 78, 85, 102; /* #4E5566 */
+	--black-coalitions: 24, 31, 45; /* #181F2D */
+
+	/* Boutons : */
+	--btn-red: 216, 99, 111; /* #D8636F */
+	--btn-red-hover: 206, 58, 73; /* #CE3A49 */
+	--btn-orange: 251, 146, 60; /* #FB923C */
+	--btn-orange-hover: 252, 166, 94; /* #FCA65E */
+	--btn-blue: 0, 186, 188; /* #00BABC */
+	--btn-blue-hover: 52, 198, 202; /* #34C6CA */
+
+	/* Milestone : */
+	--milestone-blue: 0, 186, 188; /* #00BABC */
+	--milestone-blue-dark: 7, 89, 89; /* #075959 */
+
+	/* Agenda : */
+	--agenda-blue: 162, 179, 229; /* #A2B3E5 */
+	--agenda-red: 237, 129, 121; /* #ED8179 */
+	--agenda-green: 57, 216, 143; /* #39D88F */
+	--agenda-gray: 192, 192, 192; /* #C0C0C0 */
+
+	/* Coalitions : */
+	--coalition-federation: 65, 128, 219; /* #4180DB */
+	--coalition-alliance: 51, 196, 127; /* #33C47F */
+	--coalition-assembly: 160, 97, 209; /* #A061D1 */
+	--coalition-order: 255, 105, 80; /* #FF6950 */
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	font-family: 'Jost', sans-serif;
 }
 
 body {
-	margin: 0;
-	font-family: 'Roboto', sans-serif;
-	background-color: var(--color-bg);
-	color: var(--color-text);
+	background-color: rgba(var(--white-bg), 1);
+	height: 100vh;
+	width: 100%;
 }
 
-button {
-	background-color: var(--color-secondary);
-	color: var(--color-text);
-	font-size: 1rem;
-	padding: 0.5rem;
-	border: none;
-	border-radius: 0.5rem;
-	cursor: pointer;
-	transition: background-color 0.2s ease;
+header {
+	position: sticky;
+	top: 0;
 }
 
-button:hover {
-	background-color: var(--color-primary);
-	transition: background-color 0.2s ease;
+nav {
+	background-color: rgba(var(--white-primary), 1);
+	display: flex;
+	justify-content: space-between;
+	height : 64px;
 }
 
-button:active {
-	background-color: var(--color-primary);
-	filter: brightness(80%);
+.search {
+	margin: auto 20px;
+	font-weight: 200;
+	color: rgba(var(--black-sidebar), 1);
 }
 
-button:disabled {
-	background-color: var(--color-primary);
-	filter: brightness(80%);
-	cursor: not-allowed;
+main {
+}
+
+.first {
+	background-image: url("https://cdn.intra.42.fr/coalition/cover/45/federation_background.jpg");
+	background-size: cover;
+	background-position: center;
+	height: 256px;
+	display: flex;
+	justify-content: space-evenly;
+}
+
+.container {
+	height: 80%;
+	width: 30%;
+}
+
+.card {
+	background-color: rgba(var(--black-bg), 0.5);
+	width: 100%;
+	height: 100%;
+}
+
+.second {
+	background-color: rgba(var(--black-primary), 1);
+	height: 144px;
+}
+
+footer {
+	text-align: center;
+}
+
+.btn-danger {
+	background-color: rgba(var(--btn-red), 1);
+	margin: auto 20px;
+	padding: 6px 12px;
+	border: 1px solid transparent;
+	color: rgba(var(--white-primary), 1);
+	font-size: 16px;
+}
+
+.btn-danger:hover {
+	background-color: rgba(var(--btn-red-hover), 1);
 }
