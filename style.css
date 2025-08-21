@@ -75,11 +75,11 @@ main {
 	background-position: center;
 	height: 256px;
 	display: flex;
-	justify-content: space-evenly;
+	gap: 32px;
+	padding: 16px 32px;
 }
 
 .container {
-	height: 80%;
 	width: 30%;
 }
 
@@ -92,6 +92,22 @@ main {
 .second {
 	background-color: rgba(var(--black-primary), 1);
 	height: 144px;
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+}
+
+.btn-primary {
+	background-color: rgba(var(--milestone-blue));
+	height: 20px;
+	border: none;
+	color: rgba(var(--white-primary), 1);
+	font-weight: 500;
+	padding: 20px;
+	border-radius: 0.25rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 footer {
