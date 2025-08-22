@@ -102,14 +102,20 @@ nav {
 	height: 100%;
 	border: 1px solid rgba(var(--gray), 0.5);
 	border-radius: 0.75rem;
+	color: rgba(var(--white-primary), 1);
+	display: flex;
 }
 
 .photo {
 	width: 12vh;
 	height: 12vh;
-	border-radius: 50%;
 	margin: 20px;
+	border-radius: 50%;
 	border: 2px solid rgba(var(--coalition-federation), 1);
+}
+
+.card div {
+	margin: 20px 0;
 }
 
 .second {
@@ -146,5 +152,9 @@ nav {
 }
 
 footer {
+	position: sticky;
+	bottom: 0;
+	background-color: rgba(var(--white-primary), 1);
 	text-align: center;
+	height: 32px;
 }
