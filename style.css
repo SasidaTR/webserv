@@ -95,6 +95,7 @@ header {
 	display: flex;
 	gap: 32px;
 	height: 256px;
+	min-width: 1024px;
 	margin-left: 80px;
 	padding: 16px 32px;
 	background-image: url("https://cdn.intra.42.fr/coalition/cover/45/federation_background.jpg");
@@ -104,7 +105,7 @@ header {
 
 .card {
 	display: flex;
-	width: 100%;
+	width: 40%;
 	height: 100%;
 	border: 1px solid rgba(var(--gray), 0.5);
 	border-radius: 0.75rem;
@@ -134,7 +135,9 @@ header {
 	justify-content: space-around;
 	align-items: center;
 	height: 144px;
+	min-width: 1024px;
 	margin-left: 80px;
+	/* padding: 0px 32px; */
 	background-color: rgba(var(--black-primary), 1);
 }
 
@@ -167,6 +170,6 @@ footer {
 	position: sticky;
 	bottom: 0;
 	height: 32px;
-	background-color: rgba(var(--white-primary), 1);
+	background-color: rgba(var(--white-bg), 1);
 	text-align: center;
 }
