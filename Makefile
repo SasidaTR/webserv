@@ -2,7 +2,8 @@ NAME = webserv
 CXX = c++
 # CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 SRC = $(wildcard *.cpp src/*.cpp)
-OBJ = $(SRC:.cpp=.o)
+OBJDIR = objets
+OBJ = $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRC))
 INC = -I include
 
 all: $(NAME)
@@ -10,11 +11,12 @@ all: $(NAME)
 $(NAME): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(OBJ) -o $(NAME)
 
-%.o: %.cpp
+$(OBJDIR)/%.o: %.cpp
+	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
 clean:
-	rm -f $(OBJ)
+	rm -rf $(OBJDIR)
 
 fclean: clean
 	rm -f $(NAME)
