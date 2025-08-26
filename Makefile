@@ -1,6 +1,6 @@
 NAME = webserv
 CXX = c++
-# CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 SRC = $(wildcard *.cpp src/*.cpp)
 OBJDIR = objets
 OBJ = $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRC))
