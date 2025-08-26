@@ -9,6 +9,8 @@
 #include <iostream>
 #include <stdexcept>
 #include <fcntl.h>
+#include <fstream>
+#include <sstream>
 
 std::string build_response(const std::string& body) {
     return "HTTP/1.1 200 OK\r\n"
@@ -19,9 +21,22 @@ std::string build_response(const std::string& body) {
 }
 
 void handle_client(int client_fd) {
-    std::string body = "<h1>Hello Web</h1>";
-    std::string response = build_response(body);
+    // terminal response :
+    std::cout << "Through the loop again..." << std::endl;
 
+    // index.htlm handeling :
+    std::ifstream file("./html/index.html");
+    std::string body;
+    if (file) {
+        std::ostringstream ss;
+        ss << file.rdbuf();
+        body = ss.str();
+    } else {
+        body = "<h1>html file not found</h1>";
+    }
+
+    // response message
+    std::string response = build_response(body);
     if (send(client_fd, response.c_str(), response.size(), 0) < 0)
         throw std::runtime_error("send failed");
 
