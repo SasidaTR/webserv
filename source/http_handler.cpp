@@ -1,44 +1,46 @@
-#include <iostream>
-#include <unistd.h>
-#include <string>
-#include <unistd.h>
-#include <stdexcept>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <iostream>
-#include <stdexcept>
-#include <fcntl.h>
-#include <fstream>
-#include <sstream>
+#include "../include/webserv.hpp"
 
-std::string build_response(const std::string& body) {
-    return "HTTP/1.1 200 OK\r\n"
-           "Content-Type: text/html\r\n"
-           "Content-Length: " + std::to_string(body.size()) + "\r\n"
-           "\r\n" +
-           body;
+std::string build_response(const std::string& body, const std::string& ctype) {
+	std::ostringstream len;
+	len << body.size();
+	return "HTTP/1.1 200 OK\r\n"
+		"Content-Type: " + ctype + "\r\n"
+		"Content-Length: " + len.str() + "\r\n"
+		"\r\n" +
+		body;
 }
 
 void handle_client(int client_fd) {
-    // terminal response :
-    std::cout << "Through the loop again..." << std::endl;
+	char buf[1024];
+	ssize_t n = recv(client_fd, buf, sizeof(buf), 0);
+	if (n <= 0) {
+		close(client_fd);
+		return;
+	}
+	std::string req(buf, n);
+	std::string body;
+	std::string ctype = "text/html";
 
-    // index.htlm handeling :
-    std::ifstream file("./html/index.html");
-    std::string body;
-    if (file) {
-        std::ostringstream ss;
-        ss << file.rdbuf();
-        body = ss.str();
-    } else {
-        body = "<h1>html file not found</h1>";
-    }
+	if (req.find("GET /style.css") == 0) {
+		std::ifstream file("./html/style.css");
+		if (file) {
+			std::ostringstream ss;
+			ss << file.rdbuf();
+			body = ss.str();
+			ctype = "text/css";
+		}
+	} else {
+		std::ifstream file("./html/index.html");
+		if (file) {
+			std::ostringstream ss;
+			ss << file.rdbuf();
+			body = ss.str();
+		} else {
+			body = "<h1>html file not found</h1>";
+		}
+	}
 
-    // response message
-    std::string response = build_response(body);
-    if (send(client_fd, response.c_str(), response.size(), 0) < 0)
-        throw std::runtime_error("send failed");
-
-    close(client_fd);
+	std::string response = build_response(body, ctype);
+	send(client_fd, response.c_str(), response.size(), 0);
+	close(client_fd);
 }
