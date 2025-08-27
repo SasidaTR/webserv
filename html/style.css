@@ -98,7 +98,7 @@ header {
 	min-width: 1024px;
 	margin-left: 80px;
 	padding: 16px 32px;
-	background-image: url("https://cdn.intra.42.fr/coalition/cover/45/federation_background.jpg");
+	background-image: url("https://cdn.intra.42.fr/coalition/cover/46/alliance_background.jpg");
 	background-size: cover;
 	background-position: center;
 }
@@ -118,7 +118,7 @@ header {
 	height: 108px;
 	margin-top: 32px;
 	margin-left: 28px;
-	border: 2px solid rgba(var(--coalition-federation), 1);
+	border: 2px solid rgba(var(--coalition-alliance), 1);
 	border-radius: 50%;
 }
 
@@ -137,7 +137,7 @@ header {
 	height: 144px;
 	min-width: 1024px;
 	margin-left: 80px;
-	/* padding: 0px 32px; */
+	padding: 0px 32px;
 	background-color: rgba(var(--black-primary), 1);
 }
 
