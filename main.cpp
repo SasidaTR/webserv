@@ -10,7 +10,7 @@ int main() {
 			int client_fd = accept(server_fd, NULL, NULL);
 			if (client_fd == -1) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK) {
-					return -1; // no client yet
+					return -1;
 				}
 				throw std::runtime_error("accept failed");
 			}
