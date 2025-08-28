@@ -1,4 +1,13 @@
 #include "../include/webserv.hpp"
+#include <vector>
+#include <stdexcept>
+#include <iostream>
+#include <cerrno>
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <sys/socket.h>
 
 int setup_server(int port) {
 	// open socket
@@ -38,6 +47,6 @@ int accept_client(int server_fd) {
 		}
 		throw std::runtime_error("accept failed");
 	}
-	client_sockets.push_back(new_socket);
+	client_sockets.push_back(client_fd);
 	return client_fd;
 }

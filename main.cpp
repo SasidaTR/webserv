@@ -14,7 +14,7 @@ int main() {
 				}
 				throw std::runtime_error("accept failed");
 			}
-			client_sockets.push_back(new_socket);
+			client_sockets.push_back(client_fd);
 			if (client_fd == -1) {
 				continue;
 			}
