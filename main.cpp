@@ -6,9 +6,16 @@ int main() {
 		int server_fd = setup_server(8080);
 		while (true)
 		{
-			int client_fd = accept_client(server_fd);
+			std::vector<int> client_sockets;
+			int client_fd = accept(server_fd, NULL, NULL);
 			if (client_fd == -1) {
-				usleep(1000);
+				if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					return -1; // no client yet
+				}
+				throw std::runtime_error("accept failed");
+			}
+			client_sockets.push_back(new_socket);
+			if (client_fd == -1) {
 				continue;
 			}
 			handle_client(client_fd);

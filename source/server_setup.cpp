@@ -30,6 +30,7 @@ int setup_server(int port) {
 }
 
 int accept_client(int server_fd) {
+	std::vector<int> client_sockets;
 	int client_fd = accept(server_fd, NULL, NULL);
 	if (client_fd == -1) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -37,5 +38,6 @@ int accept_client(int server_fd) {
 		}
 		throw std::runtime_error("accept failed");
 	}
+	client_sockets.push_back(new_socket);
 	return client_fd;
 }
