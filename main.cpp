@@ -11,71 +11,67 @@
 int main() {
     try {
         std::signal(SIGPIPE, SIG_IGN);
+
         int server_fd = setup_server(8080);
+
         std::vector<pollfd> fds;
-		struct pollfd p;
-		p.fd = server_fd;
-		p.events = POLLIN;
-		p.revents = 0;
-		fds.push_back(p);
+        struct pollfd p;
+        p.fd = server_fd;
+        p.events = POLLIN;
+        p.revents = 0;
+        fds.push_back(p);
 
         while (true) {
-			int temp = poll(fds.data(), fds.size(), 0);
-			if (temp == -1)
-				throw std::runtime_error("could not poll()");
-			for (size_t i = 0; i < fds.size(); i++)
-			{
-				pollfd &ptr = fds[i];
-				if (ptr.revents == 0)
-					continue;
-				--temp;
-				
-				if (ptr.fd == server_fd && (ptr.revents& POLLIN)){
-					int client_fd = accept(server_fd, NULL, NULL);
-					if (client_fd != -1){
-						struct pollfd p;
-						p.fd = client_fd;
-						p.events = POLLIN;
-						p.revents = 0;
-						fds.push_back(p);
-					}
-					continue;
-				}
+            int ret = poll(fds.data(), fds.size(), 1000); // 1s timeout
+            if (ret == -1)
+                throw std::runtime_error("poll() failed");
 
-				if (ptr.revents& POLLIN){
-					char buffer[1024];
-					size_t n = read(ptr.fd, buffer, sizeof(buffer));
-					if (n <= 0){
-						close(ptr.fd);
-						fds[i] = fds.back();
-						fds.pop_back();
-						i--;
-					}
-					else{
-						std::cout << std::string(buffer, n) << std::endl;
-						ptr.events |= POLLOUT;
-					}
-				}
-				if (ptr.revents & POLLIN) {
-					char buf[1024];
-					ssize_t n = read(ptr.fd, buf, sizeof(buf));
-					if (n <= 0) {
-						close(ptr.fd);
-						fds[i] = fds.back();
-						fds.pop_back();
-						--i;
-					} 
-					else {
-						std::cout << "Received: " << std::string(buf, n) << "\n";
-						ptr.events |= POLLOUT;
-					}
-            	}
-			}
+            for (size_t i = 0; i < fds.size(); i++) {
+                pollfd &ptr = fds[i];
+
+                if (ptr.revents == 0)
+                    continue;
+
+                // New client
+                if (ptr.fd == server_fd && (ptr.revents & POLLIN)) {
+                    int client_fd = accept(server_fd, NULL, NULL);
+                    if (client_fd != -1) {
+                        struct pollfd np;
+                        np.fd = client_fd;
+                        np.events = POLLIN;
+                        np.revents = 0;
+                        fds.push_back(np);
+                    }
+                    continue;
+                }
+
+                // Existing client ready to read
+                if (ptr.revents & POLLIN) {
+                    handle_client(ptr.fd);
+
+                    // remove fd from list
+                    fds[i] = fds.back();
+                    fds.pop_back();
+                    --i;
+                    continue;
+                }
+
+                // Clean up if error/hangup
+                if (ptr.revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                    close(ptr.fd);
+                    fds[i] = fds.back();
+                    fds.pop_back();
+                    --i;
+                }
+            }
         }
-    	close(server_fd);
+
+        close(server_fd);
     } catch (const std::exception& e) {
         std::cerr << "Fatal: " << e.what() << "\n";
         return 1;
     }
+
     return 0;
 }
+
