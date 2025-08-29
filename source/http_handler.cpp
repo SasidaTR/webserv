@@ -1,12 +1,6 @@
 #include "../include/webserv.hpp"
 #include "../include/http/Request.hpp"
-#include <cerrno>
-#include <cstring>
 #include <fstream>
-#include <sstream>
-#include <string>
-#include <sys/socket.h>
-#include <unistd.h>
 
 static bool send_all(int fd, const std::string& data) {
 	size_t sent = 0;
