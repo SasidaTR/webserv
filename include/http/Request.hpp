@@ -1,20 +1,19 @@
 #ifndef REQUEST_HPP
-# define REQUEST_HPP
+#define REQUEST_HPP
 
-# include <string>
-# include <map>
+#include <string>
 
 class Request {
 	private:
 		std::string method;
-		std::string path;
+		std::string target;
 		std::string version;
-		std::map<std::string, std::string> headers;
-		std::string body;
+
 	public:
-		Request();
-		~Request();
-		void parse(const std::string &raw);
+		bool parse_start_line(const std::string& req);
+		std::string getMethod() const { return method; }
+		std::string getTarget() const { return target; }
+		std::string getVersion() const { return version; }
 };
 
 #endif
