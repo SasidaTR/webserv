@@ -1,6 +1,6 @@
-#include "../include/configParse.hpp"
+// #include "../include/configParse.hpp"
 
-configParse::configParse(std::string file)
-{
+// configParse::configParse(std::string file)
+// {
     
-}
+// }

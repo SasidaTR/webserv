@@ -1,14 +1,8 @@
-#include <iostream>
-#include <unistd.h>
-#include <cstring>
-#include <string>
-#include <unistd.h>
-#include <stdexcept>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <iostream>
-#include <stdexcept>
-#include <fcntl.h>
-#include <fstream>
-#include <sstream>
+#ifndef WEBSERV_HPP
+#define WEBSERV_HPP
+
+int setup_server(int port);
+int accept_client(int server_fd);
+void handle_client(int client_fd);
+
+#endif
