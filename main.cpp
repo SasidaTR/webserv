@@ -1,10 +1,4 @@
 #include "include/webserv.hpp"
-#include <csignal>
-#include <iostream>
-#include <stdexcept>
-#include <vector>
-#include <poll.h>
-#include <unistd.h>
 
 int main() {
 	try {

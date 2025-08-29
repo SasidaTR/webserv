@@ -1,12 +1,4 @@
 #include "../include/webserv.hpp"
-#include <cerrno>
-#include <cstring>
-#include <fcntl.h>
-#include <stdexcept>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
 
 static void set_nonblocking(int fd) {
 	int flags = fcntl(fd, F_GETFL, 0);
