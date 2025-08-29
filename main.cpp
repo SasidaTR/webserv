@@ -6,18 +6,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <stdexcept>
-#include <cerrno>
-#include <cstring>
-#include <fcntl.h>
-#include <sys/socket.h>
 
-static void add_fd(std::vector<struct pollfd> &fds, int fd, short events) {
-    struct pollfd p;
-    p.fd = fd;
-    p.events = events;
-    p.revents = 0;
-    fds.push_back(p);
-}
 
 int main() {
     try {
@@ -25,52 +14,51 @@ int main() {
 
         int server_fd = setup_server(8080);
 
-        std::vector<struct pollfd> fds;
-        add_fd(fds, server_fd, POLLIN);  // <- CRUCIAL: watch the listening socket
+        std::vector<pollfd> fds;
+        struct pollfd p;
+        p.fd = server_fd;
+        p.events = POLLIN;
+        p.revents = 0;
+        fds.push_back(p);
 
         while (true) {
-            int ready = poll(&fds[0], fds.size(), -1);
-            if (ready < 0) {
-                if (errno == EINTR) continue;
-                std::perror("poll");
-                break;
-            }
+            int ret = poll(fds.data(), fds.size(), 1000); // 1s timeout
+            if (ret == -1)
+                throw std::runtime_error("poll() failed");
 
-            for (size_t i = 0; i < fds.size(); ++i) {
-                struct pollfd &p = fds[i];
+            for (size_t i = 0; i < fds.size(); i++) {
+                pollfd &ptr = fds[i];
 
-                // New connections
-                if (p.fd == server_fd && (p.revents & POLLIN)) {
-                    for (;;) {
-                        int client_fd = accept(server_fd, 0, 0);
-                        if (client_fd < 0) {
-                            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
-                            std::perror("accept");
-                            break;
-                        }
-                        // Non-blocking client is optional because handle_client() reads once and closes.
-                        // If you prefer non-blocking:
-                        // int flags = fcntl(client_fd, F_GETFL, 0);
-                        // fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
-                        add_fd(fds, client_fd, POLLIN);
+                if (ptr.revents == 0)
+                    continue;
+
+                // New client
+                if (ptr.fd == server_fd && (ptr.revents & POLLIN)) {
+                    int client_fd = accept(server_fd, NULL, NULL);
+                    if (client_fd != -1) {
+                        struct pollfd np;
+                        np.fd = client_fd;
+                        np.events = POLLIN;
+                        np.revents = 0;
+                        fds.push_back(np);
                     }
+                    continue;
                 }
 
-                // Client data
-                else if (p.fd != server_fd && (p.revents & POLLIN)) {
-                    // handle_client() does a single recv(), builds response, send(), close()
-                    handle_client(p.fd);
+                // Existing client ready to read
+                if (ptr.revents & POLLIN) {
+                    handle_client(ptr.fd);
 
-                    // Remove the fd from the vector (swap-with-back)
-                    close(p.fd); // safe even though handle_client closed; ensures cleanup
+                    // remove fd from list
                     fds[i] = fds.back();
                     fds.pop_back();
-                    --i; // adjust index since we removed current element
+                    --i;
+                    continue;
                 }
 
-                // Errors/HUPs on clients
-                else if (p.fd != server_fd && (p.revents & (POLLERR | POLLHUP | POLLNVAL))) {
-                    close(p.fd);
+                // Clean up if error/hangup
+                if (ptr.revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                    close(ptr.fd);
                     fds[i] = fds.back();
                     fds.pop_back();
                     --i;
@@ -83,5 +71,6 @@ int main() {
         std::cerr << "Fatal: " << e.what() << "\n";
         return 1;
     }
+
     return 0;
 }
