@@ -24,5 +24,5 @@ public:
     configParse(const std::string& file);
     ~configParse();
 
-    const std::vector<ServerFlat>& servers() const { return _servers; }
+    std::vector<ServerFlat>& getServers() { return _servers; }
 };
