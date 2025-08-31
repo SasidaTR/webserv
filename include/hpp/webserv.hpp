@@ -11,6 +11,7 @@
 #include <cstring>
 #include <cerrno>
 #include <csignal>
+#include <cstdlib> 
 
 #include "./configParse.hpp"
 
