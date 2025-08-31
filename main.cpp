@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
         std::signal(SIGPIPE, SIG_IGN);
 
         for (size_t i = 0; i < servers.size(); ++i) {
-            int lfd = setup_server(atoi(servers[i].port.c_str())); 
+            int lfd = setup_server(atoi(servers[i].port.c_str()), servers[i]); 
             if (lfd == -1)
                 throw std::runtime_error("setup_server failed");
 

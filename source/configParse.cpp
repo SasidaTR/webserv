@@ -36,6 +36,8 @@ bool configParse::down_the_list(const std::string& line, ServerFlat &s) {
         s.index = setValue(line);
     } else if (starts_with(line, "location:")) {
         s.location = setValue(line);
+    } else if (starts_with(line, "host:")) {
+        s.host = setValue(line);
     } else {
         return false;
     }
