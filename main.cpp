@@ -1,6 +1,16 @@
-#include "include/webserv.hpp"
+#include "include/hpp/webserv.hpp"
 
-int main() {
+int main(int argc, char **argv) {
+	(void)argc;
+	try {
+		configParse config(argv[1]);
+	} catch (const std::exception& e) {
+		std::cerr << "Config error: " << e.what() << "\n";
+		return 1;
+	} catch (...) {
+		std::cerr << "Unknown config error\n";
+		return 1;
+	}
 	try {
 		std::signal(SIGPIPE, SIG_IGN);
 
@@ -24,7 +34,6 @@ int main() {
 				if (ptr.revents == 0)
 					continue;
 
-				// New client=
 				if (ptr.fd == server_fd && (ptr.revents & POLLIN)) {
 					int client_fd = accept_client(server_fd);
 					if (client_fd != -1) {
@@ -37,18 +46,14 @@ int main() {
 					continue;
 				}
 
-				// Existing client ready to read
 				if (ptr.revents & POLLIN) {
 					handle_client(ptr.fd);
-
-					// remove fd from list
 					fds[i] = fds.back();
 					fds.pop_back();
 					--i;
 					continue;
 				}
 
-				// Clean up if error/hangup
 				if (ptr.revents & (POLLHUP | POLLERR | POLLNVAL)) {
 					close(ptr.fd);
 					fds[i] = fds.back();
