@@ -1,5 +1,6 @@
 #include "../include/hpp/webserv.hpp"
 #include "../include/http/Request.hpp"
+#include "../include/hpp/configParse.hpp"
 #include <fstream>
 
 static bool send_all(int fd, const std::string& data) {
@@ -37,7 +38,7 @@ static bool recv_request_once(int fd, std::string& req) {
 	return true;
 }
 
-void handle_client(int client_fd) {
+void handle_client(int client_fd, const ServerFlat& s) {
 	std::string req;
 	if (!recv_request_once(client_fd, req)) {
 		close(client_fd);
@@ -53,6 +54,8 @@ void handle_client(int client_fd) {
 	}
 	std::string body;
 	std::string ctype = "text/html";
+	std::string filepath = s.index;
+
 	if (r.getMethod() == "GET" && r.getTarget() == "/style.css") {
 		std::ifstream file("./html/style.css", std::ios::in | std::ios::binary);
 		if (file) {
@@ -64,7 +67,7 @@ void handle_client(int client_fd) {
 			body = "<h1>html file not found</h1>";
 		}
 	} else {
-		std::ifstream file("./html/index.html", std::ios::in | std::ios::binary);
+		std::ifstream file(filepath.c_str(), std::ios::in | std::ios::binary);
 		if (file) {
 			std::ostringstream ss;
 			ss << file.rdbuf();

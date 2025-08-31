@@ -13,8 +13,6 @@
 #include <csignal>
 #include <cstdlib> 
 
-#include "./configParse.hpp"
-
 // System headers
 #include <unistd.h>
 #include <fcntl.h>
@@ -23,8 +21,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+class configParse;
+
+struct ServerFlat;
+
 int setup_server(int port);
 int accept_client(int server_fd);
-void handle_client(int client_fd);
+void handle_client(int client_fd, const ServerFlat& server);
 
 #endif

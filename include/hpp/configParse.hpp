@@ -14,7 +14,6 @@ private:
     std::string                 _filename;
     std::vector<ServerFlat>     _servers;
 
-    // helpers
     static std::string trim(const std::string& s);
     static bool starts_with(const std::string& s, const std::string& prefix);
     static std::string setValue(const std::string& line);
