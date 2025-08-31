@@ -12,6 +12,8 @@
 #include <cerrno>
 #include <csignal>
 
+#include "./configParse.hpp"
+
 // System headers
 #include <unistd.h>
 #include <fcntl.h>
