@@ -1,6 +1,11 @@
-#include "include/hpp/webserv.hpp"
+#include "./include/hpp/webserv.hpp"
+#include "./include/hpp/configParse.hpp" 
 #include <set>
 #include <map>
+#include <csignal>
+#include <iostream>
+#include <vector>
+#include <stdexcept>
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -10,12 +15,15 @@ int main(int argc, char **argv) {
 
     std::vector<int> listen_fds;
     std::set<int>    is_listener;
-    std::map<int,size_t> listen_owner;
+    std::map<int, size_t> listen_owner;
+    std::map<int, size_t> client_owner;
 
     try {
         configParse cfg(argv[1]);
         std::vector<ServerFlat> servers = cfg.getServers(); 
+
         std::signal(SIGPIPE, SIG_IGN);
+
         for (size_t i = 0; i < servers.size(); ++i) {
             int lfd = setup_server(atoi(servers[i].port.c_str())); 
             if (lfd == -1)
@@ -44,7 +52,6 @@ int main(int argc, char **argv) {
                 pollfd &ptr = fds[i];
                 if (ptr.revents == 0)
                     continue;
-
                 if (is_listener.count(ptr.fd) && (ptr.revents & POLLIN)) {
                     int client_fd = accept_client(ptr.fd);
                     if (client_fd != -1) {
@@ -53,26 +60,30 @@ int main(int argc, char **argv) {
                         np.events = POLLIN;
                         np.revents = 0;
                         fds.push_back(np);
+                        client_owner[client_fd] = listen_owner[ptr.fd];
                     }
                     continue;
                 }
                 if (ptr.revents & POLLIN) {
-                    handle_client(ptr.fd);
+                    size_t idx = client_owner[ptr.fd];
+                    handle_client(ptr.fd, servers[idx]);
+
+                    close(ptr.fd);
+                    client_owner.erase(ptr.fd);
                     fds[i] = fds.back();
                     fds.pop_back();
                     --i;
                     continue;
                 }
-
                 if (ptr.revents & (POLLHUP | POLLERR | POLLNVAL)) {
                     close(ptr.fd);
+                    client_owner.erase(ptr.fd);
                     fds[i] = fds.back();
                     fds.pop_back();
                     --i;
                 }
             }
         }
-
         for (size_t i = 0; i < listen_fds.size(); ++i)
             close(listen_fds[i]);
 
@@ -86,3 +97,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
