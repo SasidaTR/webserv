@@ -3,6 +3,7 @@
 #include "./webserv.hpp"
 
 struct ServerFlat {
+    std::string host;
     std::string port;
     std::string root;
     std::string index;
