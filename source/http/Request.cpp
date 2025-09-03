@@ -1,17 +1,51 @@
 #include "../../include/http/Request.hpp"
+#include <sstream>
+#include <algorithm>
 
-bool Request::parse_start_line(const std::string& req) {
-	size_t e = req.find("\r\n");
-	if (e == std::string::npos) return false;
-	std::string line = req.substr(0, e);
+static std::string trim(const std::string& s) {
+	size_t start = s.find_first_not_of(" \t\r\n");
+	size_t end = s.find_last_not_of(" \t\r\n");
+	if (start == std::string::npos || end == std::string::npos) return "";
+	return s.substr(start, end - start + 1);
+}
 
-	size_t p1 = line.find(' ');
-	if (p1 == std::string::npos) return false;
-	size_t p2 = line.find(' ', p1 + 1);
-	if (p2 == std::string::npos) return false;
+bool Request::parse(const std::string& raw) {
+	size_t pos = raw.find("\r\n");
+	if (pos == std::string::npos) return false;
 
-	method = line.substr(0, p1);
-	target = line.substr(p1 + 1, p2 - (p1 + 1));
-	version = line.substr(p2 + 1);
+	std::string start_line = raw.substr(0, pos);
+	std::istringstream sl(start_line);
+	if (!(sl >> method >> target >> version)) return false;
+
+	size_t header_end = raw.find("\r\n\r\n");
+	if (header_end == std::string::npos) return false;
+
+	std::string headers_block = raw.substr(pos + 2, header_end - (pos + 2));
+	std::istringstream hl(headers_block);
+	std::string line;
+	while (std::getline(hl, line)) {
+		if (!line.empty() && line[line.size() - 1] == '\r')
+			line.erase(line.size() - 1);
+		size_t colon = line.find(':');
+		if (colon != std::string::npos) {
+			std::string key = trim(line.substr(0, colon));
+			std::string value = trim(line.substr(colon + 1));
+			if (!key.empty())
+				headers[key] = value;
+		}
+	}
+
+	if (header_end + 4 < raw.size())
+		body = raw.substr(header_end + 4);
+	else
+		body.clear();
+
 	return true;
+}
+
+std::string Request::getHeader(const std::string& key) const {
+	std::map<std::string, std::string>::const_iterator it = headers.find(key);
+	if (it != headers.end())
+		return it->second;
+	return "";
 }

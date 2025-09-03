@@ -13,11 +13,10 @@ RED = \033[0;31m
 RESET = \033[0m
 
 all: $(NAME)
-	@echo "$(GREEN)$(NAME) compilé$(RESET)"
 
 $(NAME): $(OBJ)
-	@echo "$(YELLOW)$(CXX) $(CXXFLAGS) $(OBJ) -o $(NAME)$(RESET)"
 	@$(CXX) $(CXXFLAGS) $(OBJ) -o $(NAME)
+	@echo "$(GREEN)$(NAME) compilé$(RESET)"
 
 $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
