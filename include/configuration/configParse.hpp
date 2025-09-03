@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./webserv.hpp"
+#include "../webserv.hpp"
 
 struct ServerFlat {
     std::string host;
