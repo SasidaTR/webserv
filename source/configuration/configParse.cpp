@@ -1,6 +1,6 @@
 #include <fstream>
 #include <iostream>
-#include "../include/hpp/configParse.hpp"
+#include "../include/configuration/configParse.hpp"
 
 std::string configParse::trim(const std::string& s) {
     const std::string ws = " \t\r\n";

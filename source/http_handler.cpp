@@ -1,7 +1,12 @@
-#include "../include/hpp/webserv.hpp"
 #include "../include/http/Request.hpp"
-#include "../include/hpp/configParse.hpp"
+#include "../include/http/Response.hpp"
+#include "../include/configuration/configParse.hpp"
+
 #include <fstream>
+#include <sstream>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <cerrno>
 
 static bool send_all(int fd, const std::string& data) {
 	size_t sent = 0;
@@ -19,17 +24,6 @@ static bool send_all(int fd, const std::string& data) {
 	return true;
 }
 
-static std::string build_response(const std::string& body, const std::string& ctype) {
-	std::ostringstream ss;
-	ss << "HTTP/1.1 200 OK\r\n";
-	ss << "Content-Type: " << ctype << "\r\n";
-	ss << "Content-Length: " << body.size() << "\r\n";
-	ss << "Connection: close\r\n";
-	ss << "\r\n";
-	ss << body;
-	return ss.str();
-}
-
 static bool recv_request_once(int fd, std::string& req) {
 	char buf[8192];
 	ssize_t n = recv(fd, buf, sizeof(buf), 0);
@@ -45,13 +39,17 @@ void handle_client(int client_fd, const ServerFlat& s) {
 		return;
 	}
 	Request r;
+	Response resp;
+
 	if (!r.parse_start_line(req)) {
-		const std::string b = "<h1>Bad Request</h1>";
-		const std::string rsp = build_response(b, "text/html");
-		send_all(client_fd, rsp);
+		resp.setStatus("HTTP/1.1 400 Bad Request");
+		resp.setContentType("text/html");
+		resp.setBody("<h1>Bad Request</h1>");
+		send_all(client_fd, resp.build());
 		close(client_fd);
 		return;
 	}
+
 	std::string body;
 	std::string ctype = "text/html";
 	std::string filepath = s.index;
@@ -76,7 +74,11 @@ void handle_client(int client_fd, const ServerFlat& s) {
 			body = "<h1>html file not found</h1>";
 		}
 	}
-	const std::string resp = build_response(body, ctype);
-	send_all(client_fd, resp);
+
+	resp.setStatus("HTTP/1.1 200 OK");
+	resp.setContentType(ctype);
+	resp.setBody(body);
+
+	send_all(client_fd, resp.build());
 	close(client_fd);
 }

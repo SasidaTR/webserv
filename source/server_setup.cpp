@@ -1,5 +1,5 @@
-#include "../include/hpp/webserv.hpp"
-#include "../include/hpp/configParse.hpp"
+#include "../include/webserv.hpp"
+#include "../include/configuration/configParse.hpp"
 #include <arpa/inet.h>
 
 static void set_nonblocking(int fd) {
