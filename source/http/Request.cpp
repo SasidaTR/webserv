@@ -1,6 +1,8 @@
 #include "../../include/http/Request.hpp"
+#include "../../include/colors.hpp"
 #include <sstream>
 #include <algorithm>
+#include <iostream>
 
 static std::string trim(const std::string& s) {
 	size_t start = s.find_first_not_of(" \t\r\n");
@@ -48,4 +50,25 @@ std::string Request::getHeader(const std::string& key) const {
 	if (it != headers.end())
 		return it->second;
 	return "";
+}
+
+void Request::debugPrint() const {
+	std::cout << BOLD << CYAN << "===== HTTP Request =====" << RESET << std::endl;
+
+	std::cout << GREEN << "Method:  " << RESET << method << std::endl;
+	std::cout << BLUE  << "Target:  " << RESET << target << std::endl;
+	std::cout << CYAN  << "Version: " << RESET << version << std::endl;
+
+	std::cout << MAGENTA << "--- Headers ---" << RESET << std::endl;
+	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
+		std::cout << MAGENTA << it->first << ": " << RESET 
+		          << YELLOW << it->second << RESET << std::endl;
+	}
+
+	if (!body.empty()) {
+		std::cout << GREEN << "--- Body ---" << RESET << std::endl;
+		std::cout << WHITE << body << RESET << std::endl;
+	}
+
+	std::cout << BOLD << CYAN << "========================" << RESET << std::endl;
 }
