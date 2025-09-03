@@ -16,20 +16,25 @@ all: $(NAME)
 
 $(NAME): $(OBJ)
 	@$(CXX) $(CXXFLAGS) $(OBJ) -o $(NAME)
-	@echo "$(GREEN)$(NAME) compilé$(RESET)"
+	@echo "$(GREEN)$(NAME) compiled$(RESET)"
 
-$(OBJDIR)/%.o: %.cpp
+$(OBJDIR)/.compiling:
+	@echo "$(YELLOW)Compiling$(RESET)"
+	@mkdir -p $(OBJDIR)
+	@touch $@
+
+$(OBJDIR)/%.o: %.cpp $(OBJDIR)/.compiling
 	@mkdir -p $(dir $@)
-	@echo "$(YELLOW)$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@$(RESET)"
-	@$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
 clean:
-	@echo "$(RED)rm -rf $(OBJDIR)$(RESET)"
-	@rm -rf $(OBJDIR)
+	@echo "$(RED)Cleaning$(RESET)"
+	rm -rf $(OBJDIR)
 
-fclean: clean
-	@echo "$(RED)rm -f $(NAME)$(RESET)"
-	@rm -f $(NAME)
+fclean:
+	@echo "$(RED)Cleaning$(RESET)"
+	rm -rf $(OBJDIR)
+	rm -f $(NAME)
 
 re: fclean all
 
