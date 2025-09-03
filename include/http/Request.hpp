@@ -2,18 +2,24 @@
 #define REQUEST_HPP
 
 #include <string>
+#include <map>
 
 class Request {
 	private:
 		std::string method;
 		std::string target;
 		std::string version;
+		std::map<std::string, std::string> headers;
+		std::string body;
 
 	public:
-		bool parse_start_line(const std::string& req);
+		bool parse(const std::string& raw);
 		std::string getMethod() const { return method; }
 		std::string getTarget() const { return target; }
 		std::string getVersion() const { return version; }
+		std::string getHeader(const std::string& key) const;
+		const std::map<std::string, std::string>& getHeaders() const { return headers; }
+		std::string getBody() const { return body; }
 };
 
 #endif
