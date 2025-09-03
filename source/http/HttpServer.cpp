@@ -2,7 +2,6 @@
 #include "../../include/http/Request.hpp"
 #include "../../include/http/Response.hpp"
 #include "../../include/http/Router.hpp"
-#include "../../include/colors.hpp"
 #include <iostream>
 #include <string>
 #include <unistd.h>
@@ -40,10 +39,6 @@ void handle_client(int client_fd, const ServerFlat& s) {
 		return;
 	}
 
-	std::cout << "===== Raw HTTP Request =====\n" << std::endl;
-	std::cout << raw_req;
-	std::cout << "============================" << std::endl;
-
 	Request req;
 	Response resp;
 
@@ -55,6 +50,8 @@ void handle_client(int client_fd, const ServerFlat& s) {
 		close(client_fd);
 		return;
 	}
+
+	req.debugPrint();
 
 	Router router(s);
 	resp = router.route(req);
