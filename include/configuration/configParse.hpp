@@ -2,12 +2,25 @@
 
 #include "../webserv.hpp"
 
+struct Location {
+    std::string path;
+    std::string root;
+    std::string index;
+    bool autoindex;
+    //cgi : 
+    std::vector<std::string> cgi_ext;
+    std::vector<std::string> cgi_path;
+
+    Location() : autoindex(false) {}
+};
+
 struct ServerFlat {
+    std::string name;
     std::string host;
     std::string port;
     std::string root;
     std::string index;
-    std::string location;
+    std::vector<Location> location;
 };
 
 class configParse {
