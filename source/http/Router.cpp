@@ -30,7 +30,7 @@ Response Router::route(const Request& req) const {
 		return resp;
 	}
 
-	std::string path = server.index;
+	std::string path = server.root + "/" + server.index;
 	if (req.getTarget() == "/style.css")
 		path = "./html/style.css";
 
