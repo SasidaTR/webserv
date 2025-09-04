@@ -1,12 +1,16 @@
+// configParse.cpp
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include "../include/configuration/configParse.hpp"
+
+bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &cur);
 
 std::string configParse::trim(const std::string& s) {
     const std::string ws = " \t\r\n";
-    size_t start = s.find_first_not_of(ws);
+    std::string::size_type start = s.find_first_not_of(ws);
     if (start == std::string::npos) return "";
-    size_t end = s.find_last_not_of(ws);
+    std::string::size_type end = s.find_last_not_of(ws);
     return s.substr(start, end - start + 1);
 }
 
@@ -16,14 +20,13 @@ bool configParse::starts_with(const std::string& s, const std::string& prefix) {
 }
 
 std::string configParse::setValue(const std::string& line) {
-    size_t sep = line.find(':');
+    std::string::size_type sep = line.find(':');
     if (sep == std::string::npos)
         throw std::runtime_error("config: missing ':' in line: " + line);
     std::string value = line.substr(sep + 1);
-    size_t hash = value.find('#');
+    std::string::size_type hash = value.find('#');
     if (hash != std::string::npos)
         value = value.substr(0, hash);
-
     return trim(value);
 }
 
@@ -34,8 +37,6 @@ bool configParse::down_the_list(const std::string& line, ServerFlat &s) {
         s.root = setValue(line);
     } else if (starts_with(line, "index:")) {
         s.index = setValue(line);
-    } else if (starts_with(line, "location:")) {
-        s.location = setValue(line);
     } else if (starts_with(line, "host:")) {
         s.host = setValue(line);
     } else {
@@ -55,7 +56,7 @@ configParse::configParse(const std::string& file) : _filename(file) {
     while (std::getline(in, raw)) {
         if (!raw.empty() && raw[raw.size()-1] == '\r')
             raw.erase(raw.size()-1);
-        size_t hash = raw.find('#');
+        std::string::size_type hash = raw.find('#');
         if (hash != std::string::npos) raw = raw.substr(0, hash);
         std::string line = trim(raw);
         if (line.empty()) continue;
@@ -71,20 +72,31 @@ configParse::configParse(const std::string& file) : _filename(file) {
         }
 
         ServerFlat &cur = _servers.back();
+
         if (!down_the_list(line, cur)) {
-            throw std::runtime_error("config: unknown directive: " + line);
+            if (!parse_location_block_from_line(in, line, cur)) {
+                throw std::runtime_error("config: unknown directive: " + line);
+            }
         }
     }
 
     in.close();
     if (_servers.empty())
         throw std::runtime_error("config: no server defined");
-    for (size_t i = 0; i < _servers.size(); ++i) {
-        if (_servers[i].port.empty())
-            throw std::runtime_error("config: server #" + std::string(1, '0' + (char)i) + " missing 'port:'");
-        if (_servers[i].root.empty())
-            throw std::runtime_error("config: server #" + std::string(1, '0' + (char)i) + " missing 'root:'");
+
+    for (std::size_t i = 0; i < _servers.size(); ++i) {
+        if (_servers[i].port.empty()) {
+            std::ostringstream oss;
+            oss << "config: server #" << i << " missing 'port:'";
+            throw std::runtime_error(oss.str());
+        }
+        if (_servers[i].root.empty()) {
+            std::ostringstream oss;
+            oss << "config: server #" << i << " missing 'root:'";
+            throw std::runtime_error(oss.str());
+        }
     }
 }
 
 configParse::~configParse() {}
+

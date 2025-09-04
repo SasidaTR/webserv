@@ -20,7 +20,7 @@ struct ServerFlat {
     std::string port;
     std::string root;
     std::string index;
-    std::vector<Location> location;
+    std::vector<Location> locations;
 };
 
 class configParse {
