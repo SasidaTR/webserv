@@ -15,7 +15,7 @@ RESET = \033[0m
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	@$(CXX) $(CXXFLAGS) $(OBJ) -o $(NAME)
+	$(CXX) $(CXXFLAGS) $(INC) $(OBJ) -o $(NAME)
 	@echo "$(GREEN)$(NAME) compiled$(RESET)"
 
 $(OBJDIR)/.compiling:
@@ -31,9 +31,7 @@ clean:
 	@echo "$(RED)Cleaning$(RESET)"
 	rm -rf $(OBJDIR)
 
-fclean:
-	@echo "$(RED)Cleaning$(RESET)"
-	rm -rf $(OBJDIR)
+fclean: clean
 	rm -f $(NAME)
 
 re: fclean all
