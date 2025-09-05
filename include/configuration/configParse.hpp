@@ -8,6 +8,7 @@ struct Location {
     std::string index;
     bool autoindex;
     //cgi : 
+    std::vector<std::string> allow_methods;
     std::vector<std::string> cgi_ext;
     std::vector<std::string> cgi_path;
 

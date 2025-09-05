@@ -6,127 +6,153 @@
 #include <iostream>
 #include "../include/configuration/configParse.hpp"
 
-namespace {
-
-    static std::string ltrim(const std::string &s) {
-        std::string::size_type i = 0;
-        while (i < s.size()) {
-            char c = s[i];
-            if (c==' ' || c=='\t' || c=='\r' || c=='\n') ++i;
-            else break;
-        }
-        return s.substr(i);
-    }
-
-    static std::string rtrim(const std::string &s) {
-        if (s.empty()) return s;
-        std::string::size_type i = s.size();
-        while (i > 0) {
-            char c = s[i-1];
-            if (c==' ' || c=='\t' || c=='\r' || c=='\n') --i;
-            else break;
-        }
-        return s.substr(0, i);
-    }
-
-    static std::string trim(const std::string &s) { return rtrim(ltrim(s)); }
-
-    static std::string strip_comment(const std::string &s) {
-        std::string::size_type h = s.find('#');
-        if (h != std::string::npos) return s.substr(0, h);
-        return s;
-    }
-
-    static bool starts_with_kw(const std::string &line, const std::string &kw) {
-        if (line.size() < kw.size()) return false;
-        return line.compare(0, kw.size(), kw) == 0;
-    }
-
-    static void split_words(const std::string &line, std::vector<std::string> &out) {
-        out.clear();
-        std::string cur;
-        for (std::string::size_type i = 0; i < line.size(); ++i) {
-            char c = line[i];
-            if (c==' ' || c=='\t' || c=='\r' || c=='\n' || c==';') {
-                if (!cur.empty()) { out.push_back(cur); cur.clear(); }
-            } else {
-                cur.push_back(c);
-            }
-        }
-        if (!cur.empty()) out.push_back(cur);
-    }
-
-    static bool next_useful_line(std::istream &in, std::string &outLine) {
-        outLine.clear();
-        std::string raw;
-        while (std::getline(in, raw)) {
-            if (!raw.empty() && raw[raw.size()-1] == '\r') raw.erase(raw.size()-1);
-            raw = strip_comment(raw);
-            raw = trim(raw);
-            if (!raw.empty()) { outLine = raw; return true; }
-        }
-        return false;
-    }
-
+static std::string trimws(const std::string &s) {
+    const char *ws = " \t\r\n";
+    std::string::size_type a = s.find_first_not_of(ws);
+    if (a == std::string::npos) return "";
+    std::string::size_type b = s.find_last_not_of(ws);
+    return s.substr(a, b - a + 1);
 }
 
-bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &cur) {
-    std::string line = strip_comment(header);
-    line = trim(line);
-    if (!starts_with_kw(line, "location")) return false;
+static bool starts_with(const std::string &s, const std::string &p) {
+    return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
+}
 
-    std::vector<std::string> toks;
-    split_words(line, toks);
-    if (toks.size() < 2) throw std::runtime_error("location: missing path");
-
-    Location L;
-    L.path = toks[1];
-    L.autoindex = false;
-
-    bool have_open_brace = (!toks.empty() && toks[toks.size()-1] == "{");
-    if (!have_open_brace) {
-        std::string maybe;
-        if (!next_useful_line(in, maybe))
-            throw std::runtime_error("location: unexpected EOF after header");
-        if (maybe != "{")
-            throw std::runtime_error("location: expected '{' after header");
+static std::vector<std::string> split_words(const std::string &line) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (std::string::size_type i = 0; i < line.size(); ++i) {
+        char c = line[i];
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+            if (!cur.empty()) { out.push_back(cur); cur.clear(); }
+        } else {
+            out.push_back(std::string(1, c));
+            while (i + 1 < line.size()) {
+                char d = line[i+1];
+                if (d == ' ' || d == '\t' || d == '\r' || d == '\n') break;
+                cur.push_back(d);
+                ++i;
+            }
+            if (!cur.empty()) { out.back() += cur; cur.clear(); }
+        }
     }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
+}
 
-    std::string body;
-    while (next_useful_line(in, body)) {
-        if (body == "}") {
-            cur.locations.push_back(L);
+static std::string join_from(const std::vector<std::string> &w, std::vector<std::string>::size_type from) {
+    std::string res;
+    for (std::vector<std::string>::size_type i = from; i < w.size(); ++i) {
+        if (!res.empty()) res += " ";
+        res += w[i];
+    }
+    return res;
+}
+
+static std::string read_directive_line_with_semicolon(std::istream &in, const std::string &firstLine) {
+    std::string s = trimws(firstLine);
+    if (!s.empty() && s[s.size()-1] == ';') return s.substr(0, s.size()-1);
+    std::string line;
+    while (std::getline(in, line)) {
+        std::string t = trimws(line);
+        if (!t.empty()) {
+            s += " ";
+            s += t;
+            if (!t.empty() && t[t.size()-1] == ';') {
+                s.erase(s.size()-1);
+                break;
+            }
+        }
+    }
+    return s;
+}
+
+bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &srv) {
+    std::string s = trimws(header);
+    if (!starts_with(s, "location "))
+        throw std::runtime_error("location: header must start with 'location'");
+
+    s = trimws(s.substr(9));
+    std::string path;
+    std::string::size_type brace = s.find('{');
+    if (brace != std::string::npos) {
+        path = trimws(s.substr(0, brace));
+    } else {
+        path = trimws(s);
+        std::string line;
+        bool opened = false;
+        while (std::getline(in, line)) {
+            if (line.find('{') != std::string::npos) { opened = true; break; }
+            if (trimws(line).empty()) continue;
+        }
+        if (!opened) throw std::runtime_error("location: missing '{' after header");
+    }
+    if (path.empty() || path[0] != '/')
+        throw std::runtime_error("location: path must start with '/'");
+
+    Location loc;
+    loc.path  = path;
+    loc.root  = srv.root;
+    loc.index = srv.index;
+    loc.autoindex = false;
+
+    std::string line;
+    while (std::getline(in, line)) {
+        std::string t = trimws(line);
+        if (t.empty() || t[0] == '#') continue;
+        if (t[0] == '}') {
+            srv.locations.push_back(loc);
             return true;
         }
-        std::vector<std::string> w;
-        split_words(body, w);
+
+        std::string d = read_directive_line_with_semicolon(in, t);
+        if (d.empty()) continue;
+
+        std::vector<std::string> w = split_words(d);
         if (w.empty()) continue;
 
         const std::string key = w[0];
 
         if (key == "root") {
-            if (w.size() < 2) throw std::runtime_error("location: root requires a path");
-            L.root = w[1];
+            if (w.size() < 2) throw std::runtime_error("location: 'root' expects one value");
+            loc.root = join_from(w, 1);
             continue;
         }
         if (key == "index") {
-            if (w.size() < 2) throw std::runtime_error("location: index requires a file");
-            L.index = w[1];
+            if (w.size() != 2) throw std::runtime_error("location: 'index' expects one value");
+            loc.index = w[1];
             continue;
         }
         if (key == "autoindex") {
-            if (w.size() < 2) throw std::runtime_error("location: autoindex requires 'on' or 'off'");
-            L.autoindex = (w[1] == "on");
+            if (w.size() != 2) throw std::runtime_error("location: 'autoindex' expects on/off");
+            if (w[1] == "on") loc.autoindex = true;
+            else if (w[1] == "off") loc.autoindex = false;
+            else throw std::runtime_error("location: autoindex must be 'on' or 'off'");
+            continue;
+        }
+        if (key == "allow_methods") {
+            if (w.size() < 2) throw std::runtime_error("location: 'allow_methods' needs at least one method");
+            loc.allow_methods.clear();
+            for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i) {
+                const std::string m = w[i];
+                if (m != "GET" && m != "POST" && m != "DELETE" && m != "PUT" && m != "HEAD")
+                    throw std::runtime_error(std::string("location: unsupported method '") + m + "'");
+                loc.allow_methods.push_back(m);
+            }
             continue;
         }
         if (key == "cgi_path") {
-            if (w.size() < 2) throw std::runtime_error("location: cgi_path requires at least one interpreter");
-            for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i) L.cgi_path.push_back(w[i]);
+            if (w.size() < 2) throw std::runtime_error("location: 'cgi_path' needs at least one interpreter");
+            loc.cgi_path.clear();
+            for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i)
+                loc.cgi_path.push_back(w[i]);
             continue;
         }
         if (key == "cgi_ext") {
-            if (w.size() < 2) throw std::runtime_error("location: cgi_ext requires at least one extension");
-            for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i) L.cgi_ext.push_back(w[i]);
+            if (w.size() < 2) throw std::runtime_error("location: 'cgi_ext' needs at least one extension");
+            loc.cgi_ext.clear();
+            for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i)
+                loc.cgi_ext.push_back(w[i]);
             continue;
         }
 
@@ -135,3 +161,4 @@ bool parse_location_block_from_line(std::istream &in, const std::string &header,
 
     throw std::runtime_error("location: missing closing '}'");
 }
+

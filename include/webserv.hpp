@@ -24,6 +24,7 @@
 class configParse;
 
 struct ServerFlat;
+struct Location;
 
 int setup_server(int port, const ServerFlat& s);
 int accept_client(int server_fd);

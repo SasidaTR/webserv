@@ -1,101 +1,119 @@
-// configParse.cpp
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
 #include "../include/configuration/configParse.hpp"
 
-bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &cur);
+bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &srv);
 
-std::string configParse::trim(const std::string& s) {
-    const std::string ws = " \t\r\n";
-    std::string::size_type start = s.find_first_not_of(ws);
-    if (start == std::string::npos) return "";
-    std::string::size_type end = s.find_last_not_of(ws);
-    return s.substr(start, end - start + 1);
+static std::string trimws(const std::string &s) {
+    const char *ws = " \t\r\n";
+    std::string::size_type a = s.find_first_not_of(ws);
+    if (a == std::string::npos) return "";
+    std::string::size_type b = s.find_last_not_of(ws);
+    return s.substr(a, b - a + 1);
 }
 
-bool configParse::starts_with(const std::string& s, const std::string& prefix) {
-    if (s.size() < prefix.size()) return false;
-    return s.compare(0, prefix.size(), prefix) == 0;
+static std::string strip_trailing_semicolon(const std::string &s) {
+    if (!s.empty() && s[s.size()-1] == ';') return s.substr(0, s.size()-1);
+    return s;
 }
 
-std::string configParse::setValue(const std::string& line) {
-    std::string::size_type sep = line.find(':');
-    if (sep == std::string::npos)
-        throw std::runtime_error("config: missing ':' in line: " + line);
-    std::string value = line.substr(sep + 1);
-    std::string::size_type hash = value.find('#');
-    if (hash != std::string::npos)
-        value = value.substr(0, hash);
-    return trim(value);
-}
-
-bool configParse::down_the_list(const std::string& line, ServerFlat &s) {
-    if (starts_with(line, "port:")) {
-        s.port = setValue(line);
-    } else if (starts_with(line, "root:")) {
-        s.root = setValue(line);
-    } else if (starts_with(line, "index:")) {
-        s.index = setValue(line);
-    } else if (starts_with(line, "host:")) {
-        s.host = setValue(line);
-    } else {
-        return false;
+static std::vector<std::string> split_words(const std::string &line) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (std::string::size_type i = 0; i < line.size(); ++i) {
+        char c = line[i];
+        if (c==' ' || c=='\t' || c=='\r' || c=='\n') {
+            if (!cur.empty()) { out.push_back(cur); cur.clear(); }
+        } else {
+            cur.push_back(c);
+        }
     }
-    return true;
+    if (!cur.empty()) out.push_back(cur);
+    return out;
 }
 
-configParse::configParse(const std::string& file) : _filename(file) {
-    std::ifstream in(file.c_str());
-    if (!in.is_open())
-        throw std::runtime_error("Could not open config file: " + file);
 
-    std::string raw;
-    bool haveActive = false;
+configParse::configParse(const std::string &path) {
+    std::ifstream in(path.c_str());
+    if (!in) throw std::runtime_error("config: cannot open file: " + path);
 
-    while (std::getline(in, raw)) {
-        if (!raw.empty() && raw[raw.size()-1] == '\r')
-            raw.erase(raw.size()-1);
-        std::string::size_type hash = raw.find('#');
-        if (hash != std::string::npos) raw = raw.substr(0, hash);
-        std::string line = trim(raw);
-        if (line.empty()) continue;
+    std::string line;
+    while (std::getline(in, line)) {
+        std::string s = trimws(line);
+        if (s.empty() || s[0] == '#') continue;
 
-        if (starts_with(line, "server:")) {
-            _servers.push_back(ServerFlat());
-            haveActive = true;
+        if (s == "server {") {
+            ServerFlat srv;
+            while (std::getline(in, line)) {
+                std::string t = trimws(line);
+                if (t.empty() || t[0] == '#') continue;
+                if (t[0] == '}') {
+                    if (srv.root.empty()) throw std::runtime_error("config: server missing 'root'");
+                    if (srv.index.empty()) srv.index = "index.html";
+                    if (srv.host.empty()) srv.host = "127.0.0.1";
+                    if (srv.port.empty()) srv.port = "8080";
+                    _servers.push_back(srv);
+                    break;
+                }
+
+                if (t.size() >= 9 && t.compare(0, 9, "location ") == 0) {
+                    if (!parse_location_block_from_line(in, t, srv))
+                        throw std::runtime_error("config: failed to parse location block");
+                    continue;
+                }
+
+                t = strip_trailing_semicolon(t);
+                std::vector<std::string> w = split_words(t);
+                if (w.empty()) continue;
+
+                const std::string key = w[0];
+
+                if (key == "server_name") {
+                    if (w.size() < 2) throw std::runtime_error("config: server_name expects a value");
+                    std::string val;
+                    for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i) {
+                        if (i > 1) val += " ";
+                        val += w[i];
+                    }
+                    srv.name = val;
+                    continue;
+                }
+                if (key == "host") {
+                    if (w.size() != 2) throw std::runtime_error("config: host expects one value");
+                    srv.host = w[1];
+                    continue;
+                }
+                if (key == "port") {
+                    if (w.size() != 2) throw std::runtime_error("config: port expects one value");
+                    srv.port = w[1];
+                    continue;
+                }
+                if (key == "root") {
+                    if (w.size() < 2) throw std::runtime_error("config: root expects one value");
+                    std::string val;
+                    for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i) {
+                        if (i > 1) val += " ";
+                        val += w[i];
+                    }
+                    srv.root = val;
+                    continue;
+                }
+                if (key == "index") {
+                    if (w.size() != 2) throw std::runtime_error("config: index expects one value");
+                    srv.index = w[1];
+                    continue;
+                }
+
+                throw std::runtime_error(std::string("config: unknown server directive: ") + key);
+            }
             continue;
         }
-
-        if (!haveActive) {
-            throw std::runtime_error("config: directive before 'server:' marker: " + line);
-        }
-
-        ServerFlat &cur = _servers.back();
-
-        if (!down_the_list(line, cur)) {
-            if (!parse_location_block_from_line(in, line, cur)) {
-                throw std::runtime_error("config: unknown directive: " + line);
-            }
-        }
     }
 
-    in.close();
     if (_servers.empty())
-        throw std::runtime_error("config: no server defined");
-
-    for (std::size_t i = 0; i < _servers.size(); ++i) {
-        if (_servers[i].port.empty()) {
-            std::ostringstream oss;
-            oss << "config: server #" << i << " missing 'port:'";
-            throw std::runtime_error(oss.str());
-        }
-        if (_servers[i].root.empty()) {
-            std::ostringstream oss;
-            oss << "config: server #" << i << " missing 'root:'";
-            throw std::runtime_error(oss.str());
-        }
-    }
+        throw std::runtime_error("config: no server blocks found");
 }
 
 configParse::~configParse() {}
