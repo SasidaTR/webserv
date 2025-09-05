@@ -173,3 +173,26 @@ footer {
 	background-color: rgba(var(--white-bg), 1);
 	text-align: center;
 }
+
+/* 404 */
+
+.error404 * {
+	font-family: "Comic Neue", cursive, sans-serif;
+}
+
+.error404 {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	background-color: rgba(244, 208, 160, 0.5);
+	background-blend-mode: lighten;
+	background-image: url("https://garden.spoonflower.com/c/17576100/p/f/m/gR9ID7FI2Y97ivN9HJtt6VXGEv1ZWNrZKTbOrDxjwOYfenILwBpD/Kitsch%20Rose%203.jpg");
+	background-size: cover;
+}
+
+.error404 img {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
