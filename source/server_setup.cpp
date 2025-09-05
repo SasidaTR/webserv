@@ -2,12 +2,14 @@
 #include "../include/configuration/configParse.hpp"
 #include <arpa/inet.h>
 
+//set socket to non-blocking
 static void set_nonblocking(int fd) {
 	int flags = fcntl(fd, F_GETFL, 0);
 	if (flags == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
 		throw std::runtime_error("non-blocking failed");
 }
 
+// link sockets in single server variable
 int setup_server(int port, const ServerFlat& s) {
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd == -1) throw std::runtime_error("socket failed");
