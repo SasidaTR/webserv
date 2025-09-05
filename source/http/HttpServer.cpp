@@ -43,9 +43,8 @@ void handle_client(int client_fd, const ServerFlat& s) {
 	Response resp;
 
 	if (!req.parse(raw_req)) {
-		resp.setStatus("HTTP/1.1 400 Bad Request");
-		resp.setContentType("text/html");
-		resp.setBody("<h1>400 Bad Request</h1>");
+		resp.setStatus(400);
+		resp.setErrorBody(400);
 		send_all(client_fd, resp.build());
 		close(client_fd);
 		return;
