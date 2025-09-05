@@ -24,25 +24,25 @@ Response Router::route(const Request& req) const {
 	Response resp;
 
 	if (req.getMethod() != "GET") {
-		resp.setStatus("HTTP/1.1 405 Method Not Allowed");
-		resp.setContentType("text/html");
-		resp.setBody("<h1>405 Method Not Allowed</h1>");
+		resp.setStatus(405);
+		resp.setErrorBody(405);
 		return resp;
 	}
 
-	std::string path = server.root + "/" + server.index;
-	if (req.getTarget() == "/style.css")
-		path = "./html/style.css";
+	std::string path;
+	if (req.getTarget() == "/")
+		path = server.root + "/" + server.index;
+	else
+		path = server.root + req.getTarget();
 
 	std::string body;
 	if (readFile(path, body)) {
-		resp.setStatus("HTTP/1.1 200 OK");
+		resp.setStatus(200);
 		resp.setContentType(getContentType(path));
 		resp.setBody(body);
 	} else {
-		resp.setStatus("HTTP/1.1 404 Not Found");
-		resp.setContentType("text/html");
-		resp.setBody("<h1>404 Not Found</h1>");
+		resp.setStatus(404);
+		resp.setErrorBody(404);
 	}
 
 	return resp;
