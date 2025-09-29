@@ -7,54 +7,82 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <cerrno>
+#include <poll.h>
 
-static bool send_all(int fd, const std::string& data) {
-	size_t sent = 0;
-	while (sent < data.size()) {
-		ssize_t n = send(fd, data.data() + sent, data.size() - sent, 0);
-		if (n > 0) {
-			sent += static_cast<size_t>(n);
-		} else if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-			usleep(1000);
-			continue;
-		} else {
-			return false;
-		}
-	}
-	return true;
+
+// usfule status code
+struct ServerFlat;
+
+struct ConnState;
+
+//send rec functions
+static int try_recv_all_ready(int fd, std::string &buf) {
+    char tmp[10000];
+    for (;;) {
+        ssize_t n = recv(fd, tmp, sizeof(tmp), 0);
+        if (n > 0) { buf.append(tmp, n); continue; }
+        if (n == 0) return -1; 
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+        if (errno == EINTR) continue;
+        return -1;
+    }
 }
 
-static bool recv_request_once(int fd, std::string& req) {
-	char buf[8192];
-	ssize_t n = recv(fd, buf, sizeof(buf), 0);
-	if (n <= 0) return false;
-	req.assign(buf, buf + n);
-	return true;
+static int try_send_progress(int fd, const std::string &out, size_t &off) {
+    while (off < out.size()) {
+        ssize_t n = send(fd, out.data() + off, out.size() - off, 0);
+        if (n > 0) { off += (size_t)n; continue; }
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return 0;
+        if (errno == EINTR) continue;
+        return -1;
+    }
+    return 1;
 }
 
-void handle_client(int client_fd, const ServerFlat& s) {
-	std::string raw_req;
-	if (!recv_request_once(client_fd, raw_req)) {
-		close(client_fd);
-		return;
-	}
-
-	Request req;
-	Response resp;
-
-	if (!req.parse(raw_req)) {
-		resp.setStatus(400);
-		resp.setErrorBody(400);
-		send_all(client_fd, resp.build());
-		close(client_fd);
-		return;
-	}
-
-	req.debugPrint();
-
-	Router router(s);
-	resp = router.route(req);
-
-	send_all(client_fd, resp.build());
-	close(client_fd);
+static bool headers_complete(const std::string &in) {
+    return in.find("\r\n\r\n") != std::string::npos;
 }
+
+int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
+    if (revents & (POLLHUP | POLLERR | POLLNVAL)) return ACT_CLOSE;
+
+    int want = 0;
+
+    if (!st.resp_ready && (revents & POLLIN)) {
+        int rr = try_recv_all_ready(fd, st.in);
+        if (rr < 0) return ACT_CLOSE;  
+
+        if (!headers_complete(st.in)) {
+            want |= ACT_READ;
+        } else {
+            Request req; Response resp;
+            if (!req.parse(st.in)) {
+                resp.setStatus(400);
+                resp.setErrorBody(400);
+            } else {
+                Router router(s);
+                resp = router.route(req);
+            }
+            st.out = resp.build();
+            st.off = 0;
+            st.resp_ready = true;
+			req.debugPrint();
+        }
+    }
+
+    if (st.resp_ready && (revents & (POLLOUT | POLLIN))) {
+        int wr = try_send_progress(fd, st.out, st.off);
+        if (wr < 0) return ACT_CLOSE;
+        if (wr == 0) {
+            want |= ACT_WRITE;
+        } else {
+            return ACT_CLOSE;
+        }
+    }
+
+    if (want == 0) {
+        want = st.resp_ready ? ACT_WRITE : ACT_READ;
+    }
+    return want;
+}
+
