@@ -40,11 +40,19 @@ int setup_server(int port, const ServerFlat& s) {
 }
 
 int accept_client(int server_fd) {
-	int cfd = accept(server_fd, NULL, NULL);
-	if (cfd == -1) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) return -1;
-		throw std::runtime_error("accept failed");
-	}
-	set_nonblocking(cfd);
-	return cfd;
+    for (;;) {
+        int cfd = accept(server_fd, NULL, NULL);
+        if (cfd >= 0) {
+            set_nonblocking(cfd);
+            return cfd;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return -1;
+        }
+        if (errno == EINTR || errno == ECONNABORTED) {
+            continue;
+        }
+        throw std::runtime_error(std::string("accept failed: ") + strerror(errno));
+    }
 }
+

@@ -19,11 +19,13 @@ int main(int argc, char **argv) {
 	std::map<int, size_t> client_owner;
 
 	try {
+		// setup server info;
 		configParse cfg(argv[1]);
 		std::vector<ServerFlat> servers = cfg.getServers(); 
 
 		std::signal(SIGPIPE, SIG_IGN);
 
+		// setup open socket;
 		for (size_t i = 0; i < servers.size(); ++i) {
 			int lfd = setup_server(atoi(servers[i].port.c_str()), servers[i]); 
 			if (lfd == -1)
@@ -37,6 +39,7 @@ int main(int argc, char **argv) {
 			std::cout << "Server listening at: http://" << host << ":" << servers[i].port << "/" << std::endl;
 		}
 
+		// setup listning sockets;
 		std::vector<pollfd> fds;
 		for (size_t i = 0; i < listen_fds.size(); ++i) {
 			struct pollfd p;
@@ -46,47 +49,82 @@ int main(int argc, char **argv) {
 			fds.push_back(p);
 		}
 
+		//main loop;
 		while (true) {
+			//poll call;
 			int ret = poll(&fds[0], (nfds_t)fds.size(), 1000);
-			if (ret == -1)
+			if (ret < 0) {
+				if (errno == EINTR) continue;
 				throw std::runtime_error("poll() failed");
+			}
+			if (ret == 0) continue;
 
-			for (size_t i = 0; i < fds.size(); ++i) {
-				pollfd &ptr = fds[i];
-				if (ptr.revents == 0)
-					continue;
-				if (is_listener.count(ptr.fd) && (ptr.revents & POLLIN)) {
-					int client_fd = accept_client(ptr.fd);
-					if (client_fd != -1) {
-						struct pollfd np;
-						np.fd = client_fd;
-						np.events = POLLIN;
-						np.revents = 0;
-						fds.push_back(np);
-						client_owner[client_fd] = listen_owner[ptr.fd];
+
+			// connect on listner
+			std::vector<struct pollfd> to_add;
+			for (size_t j = 0; j < fds.size(); ++j) {
+				const int fd   = fds[j].fd;
+				const short ev = fds[j].revents;
+
+				if (!ev) continue;
+
+				if (is_listener.count(fd)) {
+					if (ev & POLLIN) {
+						//go through accept list
+						for (;;) {
+							int cfd = accept_client(fd);
+							if (cfd == -1) 
+								break;
+							struct pollfd np;
+							np.fd = cfd;
+							np.events = POLLIN;
+							np.revents = 0;
+							to_add.push_back(np);
+							client_owner[cfd] = listen_owner[fd];
+						}
 					}
-					continue;
-				}
-				if (ptr.revents & POLLIN) {
-					size_t idx = client_owner[ptr.fd];
-					handle_client(ptr.fd, servers[idx]);
-
-					close(ptr.fd);
-					client_owner.erase(ptr.fd);
-					fds[i] = fds.back();
-					fds.pop_back();
-					--i;
-					continue;
-				}
-				if (ptr.revents & (POLLHUP | POLLERR | POLLNVAL)) {
-					close(ptr.fd);
-					client_owner.erase(ptr.fd);
-					fds[i] = fds.back();
-					fds.pop_back();
-					--i;
+					if (ev & (POLLERR | POLLHUP | POLLNVAL)) {
+					}
 				}
 			}
+			// link clients to fd;
+			if (!to_add.empty()) {
+				fds.insert(fds.end(), to_add.begin(), to_add.end());
+			}
+
+			// manage client answer
+			for (size_t i = 0; i < fds.size();) {
+				const int fd   = fds[i].fd;
+				const short ev = fds[i].revents;
+
+				if (is_listener.count(fd) || !ev) { ++i; continue; }
+
+				if (ev & POLLIN) {
+					std::map<int, size_t>::iterator it = client_owner.find(fd);
+					if (it == client_owner.end()) {
+						close(fd);
+						fds[i] = fds.back(); fds.pop_back();
+						continue;
+					}
+					size_t idx = it->second;
+					handle_client(fd, servers[idx]); 
+
+					close(fd);
+					client_owner.erase(it);
+					fds[i] = fds.back(); fds.pop_back();
+					continue;
+				}
+				if (ev & (POLLHUP | POLLERR | POLLNVAL)) {
+					close(fd);
+					client_owner.erase(fd);
+					fds[i] = fds.back(); fds.pop_back();
+					continue;
+				}
+
+				++i;
+			}
 		}
+
 		for (size_t i = 0; i < listen_fds.size(); ++i)
 			close(listen_fds[i]);
 
