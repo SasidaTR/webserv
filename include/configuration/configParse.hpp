@@ -8,9 +8,9 @@ struct Location {
     std::string index;
     bool autoindex;
     //cgi : 
-    std::vector<std::string> allow_methods;
     std::vector<std::string> cgi_ext;
     std::vector<std::string> cgi_path;
+    std::vector<std::string> loc_methods;
 
     Location() : autoindex(false) {}
 };
@@ -21,7 +21,9 @@ struct ServerFlat {
     std::string port;
     std::string root;
     std::string index;
+    std::vector<std::string> ser_methods;
     std::vector<Location> locations;
+
 };
 
 class configParse {

@@ -13,6 +13,8 @@
 /*--> rework client disconection managment / check leak possibility */
 /*--> check errno use*/
 /*-->check hanging requests*/
+/*-->add method options to config parsing / GET POST DELETE*/
+/*-->recode getline*/
 
 int  accept_client(int server_fd);
 int  handle_client(int fd, short revents, const ServerFlat& s, ConnState& st);

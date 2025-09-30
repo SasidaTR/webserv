@@ -105,7 +105,20 @@ configParse::configParse(const std::string &path) {
                     srv.index = w[1];
                     continue;
                 }
+                if (key == "methods") {
+                    if (w.size() < 2)
+                        throw std::runtime_error("config: methods expects at least one of GET, POST, DELETE");
 
+                    for (size_t i = 1; i < w.size(); ++i) {
+                        const std::string& m = w[i];
+                        if (m != "GET" && m != "POST" && m != "DELETE") {
+                            throw std::runtime_error("config: invalid method '" + m +
+                                                    "' (only GET, POST, DELETE are allowed)");
+                        }
+                        srv.ser_methods.push_back(m);
+                    }
+                    continue;
+                }
                 throw std::runtime_error(std::string("config: unknown server directive: ") + key);
             }
             continue;

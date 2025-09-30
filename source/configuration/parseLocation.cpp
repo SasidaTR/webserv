@@ -130,14 +130,14 @@ bool parse_location_block_from_line(std::istream &in, const std::string &header,
             else throw std::runtime_error("location: autoindex must be 'on' or 'off'");
             continue;
         }
-        if (key == "allow_methods") {
+        if (key == "methods") {
             if (w.size() < 2) throw std::runtime_error("location: 'allow_methods' needs at least one method");
-            loc.allow_methods.clear();
+            loc.loc_methods.clear();
             for (std::vector<std::string>::size_type i = 1; i < w.size(); ++i) {
                 const std::string m = w[i];
                 if (m != "GET" && m != "POST" && m != "DELETE" && m != "PUT" && m != "HEAD")
                     throw std::runtime_error(std::string("location: unsupported method '") + m + "'");
-                loc.allow_methods.push_back(m);
+                loc.loc_methods.push_back(m);
             }
             continue;
         }
