@@ -21,7 +21,8 @@ static void set_events(std::vector<struct pollfd> &fds, int fd, short events) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
+    char config_file[1024] = "./basic.config";
+    if (argc > 2) {
         std::cerr << "Usage: ./webserv <config>\n";
         return 1;
     }
@@ -33,7 +34,7 @@ int main(int argc, char **argv) {
     std::map<int, ConnState> conns;     // client fd   -> per-connection state
 
     try {
-        configParse cfg(argv[1]);
+        configParse cfg((argc == 2) ? argv[1] : config_file);
         std::vector<ServerFlat> servers = cfg.getServers();
 
         std::signal(SIGPIPE, SIG_IGN);
