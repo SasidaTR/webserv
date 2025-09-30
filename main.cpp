@@ -10,6 +10,9 @@
 #include <errno.h>
 #include <unistd.h>
 
+/*--> rework client disconection managment / check leak possibility */
+/*--> check errno use*/
+/*-->check hanging requests*/
 
 int  accept_client(int server_fd);
 int  handle_client(int fd, short revents, const ServerFlat& s, ConnState& st);
@@ -52,7 +55,7 @@ int main(int argc, char **argv) {
             std::cout << "Server listening at: http://" << host << ":" << servers[i].port << "/\n";
         }
 
-         std::vector<pollfd> fds;
+        std::vector<pollfd> fds;
         for (size_t i = 0; i < listen_fds.size(); ++i) {
             struct pollfd p;
             p.fd = listen_fds[i];
@@ -89,10 +92,11 @@ int main(int argc, char **argv) {
                         to_add.push_back(np);
 
                         client_owner[cfd] = listen_owner[fd];
-                        conns[cfd] = ConnState(); // create per-connection state
+                        conns[cfd] = ConnState();
                     }
                 }
                 if (ev & (POLLERR | POLLHUP | POLLNVAL)) {
+                    //cleanup to code
                 }
             }
             if (!to_add.empty()) {
