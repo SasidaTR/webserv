@@ -38,5 +38,6 @@ struct Location;
 int setup_server(int port, const ServerFlat& s);
 int accept_client(int server_fd);
 void handle_client(int client_fd, const ServerFlat& server);
+bool getline_fd(int fd, std::string& out);
 
 #endif

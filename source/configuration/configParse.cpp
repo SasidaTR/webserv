@@ -3,8 +3,9 @@
 #include <stdexcept>
 #include <sstream>
 #include "../include/configuration/configParse.hpp"
+#include "../include/webserv.hpp"
 
-bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &srv);
+bool parse_location_block_from_line(int fd, const std::string &header, ServerFlat &srv);
 
 static std::string trimws(const std::string &s) {
     const char *ws = " \t\r\n";
@@ -36,17 +37,17 @@ static std::vector<std::string> split_words(const std::string &line) {
 
 
 configParse::configParse(const std::string &path) {
-    std::ifstream in(path.c_str());
-    if (!in) throw std::runtime_error("config: cannot open file: " + path);
+    int fd = open(path.c_str(), O_RDONLY);
+    if (!fd) throw std::runtime_error("config: cannot open file: " + path);
 
     std::string line;
-    while (std::getline(in, line)) {
+    while (getline_fd(fd, line)) {
         std::string s = trimws(line);
         if (s.empty() || s[0] == '#') continue;
 
         if (s == "server {") {
             ServerFlat srv;
-            while (std::getline(in, line)) {
+            while (getline_fd(fd, line)) {
                 std::string t = trimws(line);
                 if (t.empty() || t[0] == '#') continue;
                 if (t[0] == '}') {
@@ -59,7 +60,7 @@ configParse::configParse(const std::string &path) {
                 }
 
                 if (t.size() >= 9 && t.compare(0, 9, "location ") == 0) {
-                    if (!parse_location_block_from_line(in, t, srv))
+                    if (!parse_location_block_from_line(fd, t, srv))
                         throw std::runtime_error("config: failed to parse location block");
                     continue;
                 }
@@ -119,12 +120,13 @@ configParse::configParse(const std::string &path) {
                     }
                     continue;
                 }
+                close(fd);
                 throw std::runtime_error(std::string("config: unknown server directive: ") + key);
             }
             continue;
         }
     }
-
+    close(fd);
     if (_servers.empty())
         throw std::runtime_error("config: no server blocks found");
 }
