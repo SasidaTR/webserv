@@ -7,10 +7,10 @@ struct Location {
     std::string root;
     std::string index;
     bool autoindex;
+    std::vector<std::string> loc_methods;
     //cgi : 
     std::vector<std::string> cgi_ext;
     std::vector<std::string> cgi_path;
-    std::vector<std::string> loc_methods;
 
     Location() : autoindex(false) {}
 };

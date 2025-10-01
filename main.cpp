@@ -13,7 +13,7 @@
 /*--> rework client disconection managment / check leak possibility */
 /*--> check errno use*/
 /*-->check hanging requests*/
-/*-->recode getline*/
+/*-->recode getline ???*/
 
 int  accept_client(int server_fd);
 int  handle_client(int fd, short revents, const ServerFlat& s, ConnState& st);
