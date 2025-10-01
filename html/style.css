@@ -151,9 +151,12 @@ header {
 	border: none;
 	border-radius: 0.25rem;
 	font-weight: 500;
+	font-size: 16px;
 	color: rgba(var(--white-primary), 1);
 	background-color: rgba(var(--milestone-blue-dark), 1);
 	transition: background-color 0.2s ease;
+	box-sizing: border-box;
+	text-decoration: none;
 }
 
 .btn-primary:hover {
