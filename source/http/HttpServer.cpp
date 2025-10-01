@@ -15,7 +15,7 @@ struct ServerFlat;
 
 struct ConnState;
 
-//send rec functions
+//partial receive
 static int try_recv_all_ready(int fd, std::string &buf) {
     char tmp[10000];
     for (;;) {
@@ -28,6 +28,7 @@ static int try_recv_all_ready(int fd, std::string &buf) {
     }
 }
 
+//partial send
 static int try_send_progress(int fd, const std::string &out, size_t &off) {
     while (off < out.size()) {
         ssize_t n = send(fd, out.data() + off, out.size() - off, 0);
@@ -55,7 +56,8 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
         if (!headers_complete(st.in)) {
             want |= ACT_READ;
         } else {
-            Request req; Response resp;
+            Request req; 
+            Response resp;
             if (!req.parse(st.in)) {
                 resp.setStatus(400);
                 resp.setErrorBody(400);

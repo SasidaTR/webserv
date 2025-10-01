@@ -10,10 +10,8 @@
 #include <errno.h>
 #include <unistd.h>
 
-/*--> rework client disconection managment / check leak possibility */
-/*--> check errno use*/
-/*-->check hanging requests*/
-/*-->recode getline ???*/
+/*--> add data limit option to config*/
+
 
 int  accept_client(int server_fd);
 int  handle_client(int fd, short revents, const ServerFlat& s, ConnState& st);
@@ -64,7 +62,7 @@ int main(int argc, char **argv) {
             p.revents = 0;
             fds.push_back(p);
         }
-
+    
         while (true) {
             if (fds.empty()) break;
             int ret = poll(&fds[0], (nfds_t)fds.size(), 1000);
@@ -95,9 +93,6 @@ int main(int argc, char **argv) {
                         client_owner[cfd] = listen_owner[fd];
                         conns[cfd] = ConnState();
                     }
-                }
-                if (ev & (POLLERR | POLLHUP | POLLNVAL)) {
-                    //cleanup to code
                 }
             }
             if (!to_add.empty()) {
