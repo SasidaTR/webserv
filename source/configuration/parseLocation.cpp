@@ -5,6 +5,7 @@
 #include <cctype>
 #include <iostream>
 #include "../include/configuration/configParse.hpp"
+#include "../include/webserv.hpp"
 
 static std::string trimws(const std::string &s) {
     const char *ws = " \t\r\n";
@@ -49,11 +50,11 @@ static std::string join_from(const std::vector<std::string> &w, std::vector<std:
     return res;
 }
 
-static std::string read_directive_line_with_semicolon(std::istream &in, const std::string &firstLine) {
+static std::string read_directive_line_with_semicolon(int fd, const std::string &firstLine) {
     std::string s = trimws(firstLine);
     if (!s.empty() && s[s.size()-1] == ';') return s.substr(0, s.size()-1);
     std::string line;
-    while (std::getline(in, line)) {
+    while (getline_fd(fd, line)) {
         std::string t = trimws(line);
         if (!t.empty()) {
             s += " ";
@@ -67,7 +68,7 @@ static std::string read_directive_line_with_semicolon(std::istream &in, const st
     return s;
 }
 
-bool parse_location_block_from_line(std::istream &in, const std::string &header, ServerFlat &srv) {
+bool parse_location_block_from_line(int fd, const std::string &header, ServerFlat &srv) {
     std::string s = trimws(header);
     if (!starts_with(s, "location "))
         throw std::runtime_error("location: header must start with 'location'");
@@ -81,7 +82,7 @@ bool parse_location_block_from_line(std::istream &in, const std::string &header,
         path = trimws(s);
         std::string line;
         bool opened = false;
-        while (std::getline(in, line)) {
+        while (getline_fd(fd, line)) {
             if (line.find('{') != std::string::npos) { opened = true; break; }
             if (trimws(line).empty()) continue;
         }
@@ -97,7 +98,7 @@ bool parse_location_block_from_line(std::istream &in, const std::string &header,
     loc.autoindex = false;
 
     std::string line;
-    while (std::getline(in, line)) {
+    while (getline_fd(fd, line)) {
         std::string t = trimws(line);
         if (t.empty() || t[0] == '#') continue;
         if (t[0] == '}') {
@@ -105,7 +106,7 @@ bool parse_location_block_from_line(std::istream &in, const std::string &header,
             return true;
         }
 
-        std::string d = read_directive_line_with_semicolon(in, t);
+        std::string d = read_directive_line_with_semicolon(fd, t);
         if (d.empty()) continue;
 
         std::vector<std::string> w = split_words(d);
