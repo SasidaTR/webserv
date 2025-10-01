@@ -15,6 +15,27 @@ struct ServerFlat;
 
 struct ConnState;
 
+int atoi_b(char *str)
+{
+    int i = 0;
+    int exp = 0;
+    int res = 0;
+
+    while (str[i] && str[i] >= '0' && str[i] <= '9')
+    {
+        res = res * 10 + (str[i] - 48);
+        ++i;
+    }
+    if (!str[i]);
+    else if (str[i] == 'm')
+        exp = 1024*1024;
+    else if (str[i] == 'k')
+        exp = 1024*1024*1024;    
+    else throw std::runtime_error("expects Xm or Xk as quantity");
+    if (res == 0) throw std::runtime_error("0 not valid quantity");
+    return res * exp;
+}
+
 //partial receive
 static int try_recv_all_ready(int fd, std::string &buf) {
     char tmp[10000];

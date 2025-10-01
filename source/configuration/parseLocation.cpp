@@ -156,10 +156,16 @@ bool parse_location_block_from_line(int fd, const std::string &header, ServerFla
                 loc.cgi_ext.push_back(w[i]);
             continue;
         }
+        loc.client_max_body_size="1m";
+        if (key == "client_max_body_size") {
+            if (w.size() != 2) throw std::runtime_error("config: expexts one argument");
+            loc.client_max_body_size.clear();
+            loc.client_max_body_size = w[1];
+            continue;
+        }
 
         throw std::runtime_error(std::string("location: unknown directive: ") + key);
     }
 
     throw std::runtime_error("location: missing closing '}'");
 }
-
