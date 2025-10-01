@@ -31,9 +31,6 @@ bool getline_fd(int fd, std::string& out) {
             stash.erase(fd);
             return false;
         }
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return false;
-        }
         stash.erase(fd);
         return false;
     }
