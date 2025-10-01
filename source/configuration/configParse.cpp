@@ -120,6 +120,13 @@ configParse::configParse(const std::string &path) {
                     }
                     continue;
                 }
+                srv.client_max_body_size ="1m";
+                if (key == "client_max_body_size") {
+                    srv.client_max_body_size.clear();
+                    if (w.size() != 2) throw std::runtime_error("config: expexts one argument");
+                    srv.client_max_body_size = w[1];
+                    continue;
+                }
                 close(fd);
                 throw std::runtime_error(std::string("config: unknown server directive: ") + key);
             }

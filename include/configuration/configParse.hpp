@@ -8,6 +8,7 @@ struct Location {
     std::string index;
     bool autoindex;
     std::vector<std::string> loc_methods;
+    std::string client_max_body_size;
     //cgi : 
     std::vector<std::string> cgi_ext;
     std::vector<std::string> cgi_path;
@@ -21,6 +22,7 @@ struct ServerFlat {
     std::string port;
     std::string root;
     std::string index;
+    std::string client_max_body_size;
     std::vector<std::string> ser_methods;
     std::vector<Location> locations;
 
