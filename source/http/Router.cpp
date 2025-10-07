@@ -20,65 +20,71 @@ bool Router::readFile(const std::string& path, std::string& content) const {
 	return true;
 }
 
-static bool isCGI(const Request &req)
-{
-    std::string temp = req.getTarget();
-
-    //prefix
-    int i = 0;
-    std::string prefix = "/cgi-bin/";
-    while (temp[i] && prefix[i]) {
-        if (temp[i] != prefix[i])
-            break;
-        ++i;
-    }
-    bool hasPrefix = (prefix[i] == '\0');
-
-    //postfix
-    std::string postfix = ".sh";
-    int len = 0;
-    while (postfix[len]) 
-		++len;
-    int slen = temp.size();
-    bool hasPostfix = false;
-    if (slen >= len) {
-        hasPostfix = true;
-        for (int j = 0; j < len; ++j) {
-            if (temp[slen - len + j] != postfix[j]) {
-                hasPostfix = false;
-                break;
-            }
-        }
-    }
-
-    return hasPrefix || hasPostfix;
+const Location* Router::findMatchingLocation(const std::string& path) const {
+	const Location* bestMatch = NULL;
+	size_t bestMatchLen = 0;
+	
+	for (size_t i = 0; i < server.locations.size(); ++i) {
+		const Location& loc = server.locations[i];
+		const std::string& locPath = loc.path;
+		
+		if (path.size() >= locPath.size() && 
+		    path.substr(0, locPath.size()) == locPath) {
+			if (path.size() == locPath.size() || 
+			    (path.size() > locPath.size() && (path[locPath.size()] == '/' || locPath[locPath.size()-1] == '/'))) {
+				if (locPath.size() > bestMatchLen) {
+					bestMatch = &loc;
+					bestMatchLen = locPath.size();
+				}
+			}
+		}
+	}
+	
+	return bestMatch;
 }
-/*
-Response Router::handleCGI(){
-
-}
-*/
 
 Response Router::route(const Request& req) const {
 	Response resp;
 
-	if (isCGI(req))
-	{
-		//resp = handleCGI(resp, req);
-		return resp;
+	std::string target = req.getTarget();
+	size_t queryPos = target.find('?');
+	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
+	
+	const Location* loc = findMatchingLocation(pathOnly);
+	
+	if (loc && cgiHandler.canHandle(req, *loc)) {
+		return cgiHandler.execute(req, *loc);
 	}
 
-	if (req.getMethod() != "GET") {
+	if (loc) {
+		if (!loc->loc_methods.empty()) {
+			bool methodAllowed = false;
+			for (size_t i = 0; i < loc->loc_methods.size(); ++i) {
+				if (loc->loc_methods[i] == req.getMethod()) {
+					methodAllowed = true;
+					break;
+				}
+			}
+			if (!methodAllowed) {
+				resp.setStatus(405);
+				resp.setErrorBody(405);
+				return resp;
+			}
+		}
+	} else if (req.getMethod() != "GET") {
 		resp.setStatus(405);
 		resp.setErrorBody(405);
 		return resp;
 	}
 
+	std::string root = loc ? loc->root : server.root;
+	std::string index = loc ? loc->index : server.index;
+	
 	std::string path;
-	if (req.getTarget() == "/")
-		path = server.root + "/" + server.index;
+	if (req.getTarget() == "/" || (loc && req.getTarget() == loc->path))
+		path = root + "/" + index;
 	else
-		path = server.root + req.getTarget();
+		path = root + req.getTarget();
 
 	std::string body;
 	if (readFile(path, body)) {

@@ -1,0 +1,34 @@
+nohup: ignoring input
+Server listening at: http://127.0.0.1:8080/
+Server listening at: http://0.0.0.0:8081/
+[1m[36m===== HTTP Request =====[0m
+[32mMethod:  [0mGET
+[34mTarget:  [0m/cgi-bin/test.py
+[36mVersion: [0mHTTP/1.1
+[35m--- Headers ---[0m
+[35mAccept: [0m[33m*/*[0m
+[35mHost: [0m[33m127.0.0.1:8080[0m
+[35mUser-Agent: [0m[33mcurl/8.5.0[0m
+[1m[36m========================[0m
+[1m[36m===== HTTP Request =====[0m
+[32mMethod:  [0mGET
+[34mTarget:  [0m/cgi-bin/test.py?module=simple&version=2.0
+[36mVersion: [0mHTTP/1.1
+[35m--- Headers ---[0m
+[35mAccept: [0m[33m*/*[0m
+[35mHost: [0m[33m127.0.0.1:8080[0m
+[35mUser-Agent: [0m[33mcurl/8.5.0[0m
+[1m[36m========================[0m
+[1m[36m===== HTTP Request =====[0m
+[32mMethod:  [0mPOST
+[34mTarget:  [0m/cgi-bin/post_test.py
+[36mVersion: [0mHTTP/1.1
+[35m--- Headers ---[0m
+[35mAccept: [0m[33m*/*[0m
+[35mContent-Length: [0m[33m27[0m
+[35mContent-Type: [0m[33mapplication/x-www-form-urlencoded[0m
+[35mHost: [0m[33m127.0.0.1:8080[0m
+[35mUser-Agent: [0m[33mcurl/8.5.0[0m
+[32m--- Body ---[0m
+[37mname=SimpleCGI&test=success[0m
+[1m[36m========================[0m
