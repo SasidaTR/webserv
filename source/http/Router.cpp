@@ -23,14 +23,14 @@ bool Router::readFile(const std::string& path, std::string& content) const {
 const Location* Router::findMatchingLocation(const std::string& path) const {
 	const Location* bestMatch = NULL;
 	size_t bestMatchLen = 0;
-	
+
 	for (size_t i = 0; i < server.locations.size(); ++i) {
 		const Location& loc = server.locations[i];
 		const std::string& locPath = loc.path;
-		
-		if (path.size() >= locPath.size() && 
+
+		if (path.size() >= locPath.size() &&
 		    path.substr(0, locPath.size()) == locPath) {
-			if (path.size() == locPath.size() || 
+			if (path.size() == locPath.size() ||
 			    (path.size() > locPath.size() && (path[locPath.size()] == '/' || locPath[locPath.size()-1] == '/'))) {
 				if (locPath.size() > bestMatchLen) {
 					bestMatch = &loc;
@@ -39,7 +39,7 @@ const Location* Router::findMatchingLocation(const std::string& path) const {
 			}
 		}
 	}
-	
+
 	return bestMatch;
 }
 
@@ -49,9 +49,9 @@ Response Router::route(const Request& req) const {
 	std::string target = req.getTarget();
 	size_t queryPos = target.find('?');
 	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
-	
+
 	const Location* loc = findMatchingLocation(pathOnly);
-	
+
 	if (loc && cgiHandler.canHandle(req, *loc)) {
 		return cgiHandler.execute(req, *loc);
 	}
@@ -79,12 +79,38 @@ Response Router::route(const Request& req) const {
 
 	std::string root = loc ? loc->root : server.root;
 	std::string index = loc ? loc->index : server.index;
-	
 	std::string path;
+
 	if (req.getTarget() == "/" || (loc && req.getTarget() == loc->path))
 		path = root + "/" + index;
 	else
 		path = root + req.getTarget();
+
+	if (req.getMethod() == "POST") {
+		std::ofstream outFile(path.c_str(), std::ios::binary);
+		if (!outFile) {
+			resp.setStatus(500);
+			resp.setErrorBody(500);
+			return resp;
+		}
+		outFile << req.getBody();
+		outFile.close();
+		resp.setStatus(201);
+		resp.setBody("<h1>Created</h1>");
+		resp.setContentType("text/html");
+		return resp;
+	}
+
+	if (req.getMethod() == "DELETE") {
+		if (std::remove(path.c_str()) != 0) {
+			resp.setStatus(500);
+			resp.setErrorBody(500);
+		} else {
+			resp.setStatus(204);
+			resp.setBody("");
+		}
+		return resp;
+	}
 
 	std::string body;
 	if (readFile(path, body)) {
