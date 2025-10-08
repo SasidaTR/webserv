@@ -6,11 +6,9 @@
 #include <string>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <cerrno>
 #include <poll.h>
 
 
-// usfule status code
 struct ServerFlat;
 
 struct ConnState;
@@ -36,27 +34,22 @@ int atoi_b(char *str)
     return res * exp;
 }
 
-//partial receive
 static int try_recv_all_ready(int fd, std::string &buf) {
     char tmp[10000];
     for (;;) {
         ssize_t n = recv(fd, tmp, sizeof(tmp), 0);
         if (n > 0) { buf.append(tmp, n); continue; }
-        if (n == 0) return -1; 
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-        if (errno == EINTR) continue;
-        return -1;
+        if (n == 0) return -1;
+        return 0;
     }
 }
 
-//partial send
 static int try_send_progress(int fd, const std::string &out, size_t &off) {
     while (off < out.size()) {
         ssize_t n = send(fd, out.data() + off, out.size() - off, 0);
         if (n > 0) { off += (size_t)n; continue; }
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return 0;
-        if (errno == EINTR) continue;
-        return -1;
+        if (n == 0) return -1;
+        return 0;
     }
     return 1;
 }

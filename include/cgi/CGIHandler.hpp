@@ -3,7 +3,6 @@
 
 #include <string>
 
-// Forward declarations
 class Request;
 class Response;
 struct Location;

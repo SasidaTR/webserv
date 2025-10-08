@@ -23,7 +23,7 @@ std::map<int, std::string> Response::initReasonPhrases() {
 	return m;
 }
 
-Response::Response() : statusCode(200), reasonPhrase("OK"), contentType("text/html"), body("") {}
+Response::Response() : statusCode(200), reasonPhrase("OK"), contentType("text/html"), body(""), redirectLocation("") {}
 
 void Response::setStatus(int code) {
 	statusCode = code;
@@ -40,6 +40,17 @@ void Response::setContentType(const std::string& ctype) {
 
 void Response::setBody(const std::string& b) {
 	body = b;
+}
+
+void Response::setRedirect(const std::string& location) {
+	redirectLocation = location;
+	if (body.empty()) {
+		std::ostringstream ss;
+		ss << "<html><head><meta http-equiv=\"refresh\" content=\"0;url=" << location << "\"></head>";
+		ss << "<body><h1>Redirecting...</h1><p>If you are not redirected automatically, ";
+		ss << "click <a href=\"" << location << "\">here</a>.</p></body></html>";
+		body = ss.str();
+	}
 }
 
 void Response::setErrorBody(int code, const std::string& errorDir) {
@@ -64,6 +75,11 @@ void Response::setErrorBody(int code, const std::string& errorDir) {
 std::string Response::build() const {
 	std::ostringstream ss;
 	ss << "HTTP/1.1 " << statusCode << " " << reasonPhrase << "\r\n";
+	
+	if (!redirectLocation.empty()) {
+		ss << "Location: " << redirectLocation << "\r\n";
+	}
+	
 	ss << "Content-Type: " << contentType << "\r\n";
 	ss << "Content-Length: " << body.size() << "\r\n";
 	ss << "Connection: close\r\n";

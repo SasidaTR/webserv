@@ -3,7 +3,6 @@
 
 #include <string>
 
-// Forward declarations
 class Response;
 
 /**
