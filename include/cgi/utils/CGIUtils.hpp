@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-// Forward declarations
 struct Location;
 
 /**

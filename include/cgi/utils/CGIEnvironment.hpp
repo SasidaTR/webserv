@@ -5,7 +5,6 @@
 #include <map>
 #include <vector>
 
-// Forward declarations
 class Request;
 
 /**

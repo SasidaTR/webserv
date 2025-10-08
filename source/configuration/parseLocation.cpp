@@ -163,6 +163,25 @@ bool parse_location_block_from_line(int fd, const std::string &header, ServerFla
             loc.client_max_body_size = w[1];
             continue;
         }
+        if (key == "return" || key == "redirect") {
+            if (w.size() < 2) throw std::runtime_error("location: 'return/redirect' needs at least url");
+            if (w.size() == 2) {
+                loc.redirect_code = 301;
+                loc.redirect_url = w[1];
+            } else {
+                int code = atoi(w[1].c_str());
+                if (code < 300 || code > 399) 
+                    throw std::runtime_error("location: redirect code must be 3xx");
+                loc.redirect_code = code;
+                loc.redirect_url = w[2];
+            }
+            continue;
+        }
+        if (key == "upload_dir") {
+            if (w.size() != 2) throw std::runtime_error("location: 'upload_dir' expects one path");
+            loc.upload_dir = w[1];
+            continue;
+        }
 
         throw std::runtime_error(std::string("location: unknown directive: ") + key);
     }

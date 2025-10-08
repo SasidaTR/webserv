@@ -29,9 +29,8 @@ int setup_server(int port, const ServerFlat& s) {
 	setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
 	if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) == -1) {
-		int e = errno;
 		::close(server_fd);
-		throw std::runtime_error(std::string("bind failed: ") + std::strerror(e));
+		throw std::runtime_error("bind failed");
 	}
 	if (listen(server_fd, 128) == -1)
 		throw std::runtime_error("listen failed");
@@ -40,19 +39,13 @@ int setup_server(int port, const ServerFlat& s) {
 }
 
 int accept_client(int server_fd) {
-    for (;;) {
-        int cfd = accept(server_fd, NULL, NULL);
-        if (cfd >= 0) {
-            set_nonblocking(cfd);
-            return cfd;
-        }
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return -1;
-        }
-        if (errno == EINTR || errno == ECONNABORTED) {
-            continue;
-        }
-        throw std::runtime_error(std::string("accept failed: ") + strerror(errno));
+    int cfd = accept(server_fd, NULL, NULL);
+    if (cfd >= 0) {
+        set_nonblocking(cfd);
+        return cfd;
     }
+    // On error, return -1 and let poll() tell us when to retry
+    // No errno checking allowed per subject requirements
+    return -1;
 }
 
