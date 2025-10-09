@@ -177,11 +177,30 @@ footer {
 	text-align: center;
 }
 
-/* 404 */
+/* Errors */
 
-.error404 * {
+.error * {
 	font-family: "Comic Neue", cursive, sans-serif;
 }
+
+/* 403 */
+
+.error403 {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	background-image: url("https://img.freepik.com/free-vector/red-caution-barrier-tape-with-striped-pattern_107791-33624.jpg?semt=ais_hybrid&w=740&q=80");
+	background-size: cover;
+}
+
+.error403 img {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
+
+/* 404 */
 
 .error404 {
 	display: flex;
@@ -198,4 +217,25 @@ footer {
 	position: absolute;
 	width: 100%;
 	height: 100%;
+}
+
+/* 405 */
+
+.error405 {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	background-image: url("https://img.freepik.com/free-vector/red-caution-barrier-tape-with-striped-pattern_107791-33624.jpg?semt=ais_hybrid&w=740&q=80");
+	background-size: cover;
+}
+
+.error405 img {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
+
+.error405 h1 {
+	z-index: 1000;
 }
