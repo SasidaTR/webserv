@@ -70,6 +70,30 @@ int main(int argc, char **argv) {
                 if (errno == EINTR) continue;
                 throw std::runtime_error("poll() failed");
             }
+            
+            time_t now = time(NULL);
+            for (std::map<int, ConnState>::iterator it = conns.begin(); it != conns.end(); ) {
+                if (now - it->second.last_activity > 60) {
+                    std::cout << "Timeout: closing connection fd=" << it->first << "\n";
+                    close(it->first);
+                    client_owner.erase(it->first);
+                    
+                    for (size_t k = 0; k < fds.size(); ++k) {
+                        if (fds[k].fd == it->first) {
+                            fds[k] = fds.back();
+                            fds.pop_back();
+                            break;
+                        }
+                    }
+                    
+                    std::map<int, ConnState>::iterator tmp = it;
+                    ++it;
+                    conns.erase(tmp);
+                } else {
+                    ++it;
+                }
+            }
+            
             if (ret == 0) continue;
 
             std::vector<struct pollfd> to_add;

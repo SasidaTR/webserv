@@ -20,14 +20,16 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <ctime>
 
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 
 struct ConnState {
-    std::string in, out;  // accumulated request, built response
-    size_t      off;      // bytes already sent from 'out'
+    std::string in, out;
+    size_t      off;
     bool        resp_ready;
-    ConnState() : off(0), resp_ready(false) {}
+    time_t      last_activity;
+    ConnState() : off(0), resp_ready(false), last_activity(time(NULL)) {}
 };
 
 class configParse;
