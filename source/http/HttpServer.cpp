@@ -68,7 +68,6 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
         int rr = try_recv_all_ready(fd, st.in);
         if (rr < 0) return ACT_CLOSE;
         
-        // Mettre à jour last_activity après réception de données
         st.last_activity = time(NULL);  
 
         if (!headers_complete(st.in)) {
@@ -86,7 +85,7 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
             st.out = resp.build();
             st.off = 0;
             st.resp_ready = true;
-			req.debugPrint();
+			// req.debugPrint();
         }
     }
 
