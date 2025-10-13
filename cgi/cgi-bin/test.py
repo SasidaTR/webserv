@@ -12,7 +12,6 @@ print("<h1>Hello from Python CGI!</h1>")
 print("<h2>Environment Variables:</h2>")
 print("<ul>")
 
-# Affiche quelques variables d'environnement importantes
 env_vars = ['REQUEST_METHOD', 'QUERY_STRING', 'CONTENT_TYPE', 'CONTENT_LENGTH', 
            'SERVER_NAME', 'SERVER_PORT', 'SCRIPT_NAME', 'PATH_INFO']
 
