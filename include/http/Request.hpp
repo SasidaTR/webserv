@@ -11,6 +11,7 @@ class Request {
 		std::string version;
 		std::map<std::string, std::string> headers;
 		std::string body;
+		std::string dechunkBody(const std::string& chunked);
 
 	public:
 		bool parse(const std::string& raw);

@@ -11,6 +11,31 @@ static std::string trim(const std::string& s) {
 	return s.substr(start, end - start + 1);
 }
 
+std::string Request::dechunkBody(const std::string& chunked) {
+	std::string result;
+	size_t pos = 0;
+	
+	while (pos < chunked.size()) {
+		size_t line_end = chunked.find("\r\n", pos);
+		if (line_end == std::string::npos) break;
+		
+		std::string size_str = chunked.substr(pos, line_end - pos);
+		size_t chunk_size;
+		std::istringstream iss(size_str);
+		iss >> std::hex >> chunk_size;
+		
+		if (chunk_size == 0) break;
+		
+		pos = line_end + 2;
+		if (pos + chunk_size > chunked.size()) break;
+		
+		result.append(chunked.substr(pos, chunk_size));
+		pos += chunk_size + 2;
+	}
+	
+	return result;
+}
+
 bool Request::parse(const std::string& raw) {
 	size_t pos = raw.find("\r\n");
 	if (pos == std::string::npos) return false;
@@ -41,6 +66,14 @@ bool Request::parse(const std::string& raw) {
 		body = raw.substr(header_end + 4);
 	else
 		body.clear();
+	
+	std::string transfer_encoding = getHeader("Transfer-Encoding");
+	if (!transfer_encoding.empty() && transfer_encoding.find("chunked") != std::string::npos) {
+		body = dechunkBody(body);
+		std::ostringstream oss;
+		oss << body.size();
+		headers["Content-Length"] = oss.str();
+	}
 
 	return true;
 }
