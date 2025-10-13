@@ -55,21 +55,55 @@ void Response::setRedirect(const std::string& location) {
 
 void Response::setErrorBody(int code, const std::string& errorDir) {
 	setStatus(code);
-	std::ostringstream filename;
-	filename << errorDir << "/" << code << ".html";
-
-	std::ifstream file(filename.str().c_str());
-	if (file) {
-		std::ostringstream buffer;
-		buffer << file.rdbuf();
-		setBody(buffer.str());
-		setContentType("text/html");
-	} else {
-		std::ostringstream fallback;
-		fallback << "<h1>" << code << " " << reasonPhrase << "</h1>";
-		setBody(fallback.str());
-		setContentType("text/html");
+	
+	if (!errorDir.empty()) {
+		std::ostringstream filename;
+		filename << errorDir << "/" << code << ".html";
+		std::ifstream file(filename.str().c_str());
+		if (file) {
+			std::ostringstream buffer;
+			buffer << file.rdbuf();
+			setBody(buffer.str());
+			setContentType("text/html");
+			return;
+		}
 	}
+
+	std::ostringstream html;
+	html << "<!DOCTYPE html>\n"
+	     << "<html lang=\"en\">\n"
+	     << "<head>\n"
+	     << "    <meta charset=\"UTF-8\">\n"
+	     << "    <title>webserv</title>\n"
+	     << "    <link href=\"https://fonts.googleapis.com/css2?family=Comic+Neue&display=swap\" rel=\"stylesheet\">\n"
+	     << "    <style>\n"
+	     << "        * { margin: 0; padding: 0; font-family: 'Comic Neue', cursive, sans-serif; }\n"
+	     << "        html, body { width: 100%; min-height: 100%; }\n"
+	     << "        body {\n"
+	     << "            display: flex;\n"
+	     << "            justify-content: center;\n"
+	     << "            align-items: center;\n"
+	     << "            height: 100vh;\n"
+	     << "            background-image: url('https://img.freepik.com/free-vector/red-caution-barrier-tape-with-striped-pattern_107791-33624.jpg');\n"
+	     << "            background-size: cover;\n"
+	     << "        }\n"
+	     << "        .error h1 {\n"
+	     << "            z-index: 1000;\n"
+	     << "            font-size: 48px;\n"
+	     << "            color: #fff;\n"
+	     << "            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);\n"
+	     << "        }\n"
+	     << "    </style>\n"
+	     << "</head>\n"
+	     << "<body>\n"
+	     << "    <div class=\"error\">\n"
+	     << "        <h1>Error " << code << ": " << reasonPhrase << "</h1>\n"
+	     << "    </div>\n"
+	     << "</body>\n"
+	     << "</html>";
+	
+	setBody(html.str());
+	setContentType("text/html");
 }
 
 std::string Response::build() const {
