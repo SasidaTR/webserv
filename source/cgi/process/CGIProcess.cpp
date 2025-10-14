@@ -7,9 +7,10 @@
 #include <poll.h>
 #include <cstring>
 #include <errno.h>
+#include <sstream>
 
 std::string CGIProcess::createErrorResponse(const std::string& message) {
-	return "Content-Type: text/html\r\n\r\n<h1>Erreur CGI</h1><p>" + message + "</p>";
+	return "Status: 500\r\nContent-Type: text/html\r\n\r\n<h1>Erreur CGI 500</h1><p>" + message + "</p>";
 }
 
 bool CGIProcess::createPipes(int pipeIn[2], int pipeOut[2]) {
@@ -93,6 +94,17 @@ std::string CGIProcess::handleParentProcess(int pipeIn[2], int pipeOut[2],
 	
 	int status;
 	waitpid(childPid, &status, 0);
+	
+	if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+		std::ostringstream oss;
+		oss << "Le script CGI s'est terminé avec une erreur (code: " << WEXITSTATUS(status) << ")";
+		return createErrorResponse(oss.str());
+	}
+	if (WIFSIGNALED(status)) {
+		std::ostringstream oss;
+		oss << "Le script CGI a été tué par un signal " << WTERMSIG(status);
+		return createErrorResponse(oss.str());
+	}
 	
 	return result;
 }
