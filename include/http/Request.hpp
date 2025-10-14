@@ -21,6 +21,7 @@ class Request {
 		std::string getHeader(const std::string& key) const;
 		const std::map<std::string, std::string>& getHeaders() const { return headers; }
 		std::string getBody() const { return body; }
+		bool isValidMethod() const;
 		void debugPrint() const;
 };
 

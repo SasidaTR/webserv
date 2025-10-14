@@ -46,6 +46,33 @@ bool Router::isMethodAllowed(const Request& req, const Location* loc) const {
 	return true;
 }
 
+static size_t parseSize(const std::string& sizeStr) {
+	if (sizeStr.empty()) return 1048576; // 1MB default
+	
+	size_t value = 0;
+	size_t i = 0;
+	while (i < sizeStr.size() && sizeStr[i] >= '0' && sizeStr[i] <= '9') {
+		value = value * 10 + (sizeStr[i] - '0');
+		++i;
+	}
+	
+	if (i < sizeStr.size()) {
+		char unit = sizeStr[i];
+		if (unit == 'K' || unit == 'k') value *= 1024;
+		else if (unit == 'M' || unit == 'm') value *= 1024 * 1024;
+		else if (unit == 'G' || unit == 'g') value *= 1024 * 1024 * 1024;
+	}
+	
+	return value;
+}
+
+bool Router::checkBodySize(const Request& req, const Location* loc) const {
+	std::string bodyLimitStr = loc ? loc->client_max_body_size : server.client_max_body_size;
+	size_t maxSize = parseSize(bodyLimitStr);
+	
+	return req.getBody().size() <= maxSize;
+}
+
 std::string Router::resolvePath(const Request& req, const Location* loc) const {
 	std::string root = loc ? loc->root : server.root;
 	std::string index = loc ? loc->index : server.index;
@@ -66,11 +93,24 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 Response Router::route(const Request& req) const {
 	Response resp;
 
+	// Check if HTTP method is implemented (RFC 7231)
+	if (!req.isValidMethod()) {
+		resp.setStatus(501);  // Not Implemented
+		resp.setErrorBody(501);
+		return resp;
+	}
+
 	std::string target = req.getTarget();
 	size_t queryPos = target.find('?');
 	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
 
 	const Location* loc = findMatchingLocation(pathOnly);
+
+	if (!checkBodySize(req, loc)) {
+		resp.setStatus(413);
+		resp.setErrorBody(413);
+		return resp;
+	}
 
 	if (loc && !loc->redirect_url.empty()) {
 		resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);

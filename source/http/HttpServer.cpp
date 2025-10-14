@@ -36,10 +36,16 @@ int atoi_b(char *str)
 }
 
 static int try_recv_all_ready(int fd, std::string &buf) {
-    char tmp[10000];
+    char tmp[8192];
     for (;;) {
         ssize_t n = recv(fd, tmp, sizeof(tmp), 0);
-        if (n > 0) { buf.append(tmp, n); continue; }
+        if (n > 0) { 
+            buf.append(tmp, n); 
+            if (buf.size() > 10485760) {
+                return -1;
+            }
+            continue; 
+        }
         if (n == 0) return -1;
         return 0;
     }

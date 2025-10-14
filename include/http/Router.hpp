@@ -25,6 +25,7 @@ class Router {
 		const Location* findMatchingLocation(const std::string& path) const;
 		bool isMethodAllowed(const Request& req, const Location* loc) const;
 		std::string resolvePath(const Request& req, const Location* loc) const;
+		bool checkBodySize(const Request& req, const Location* loc) const;
 
 	public:
 		Router(const ServerFlat& s);

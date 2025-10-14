@@ -22,6 +22,7 @@ bool getline_fd(int fd, std::string& out) {
             buf.append(tmp, tmp + n);
             continue;
         }
+
         if (n == 0) {
             if (!buf.empty()) {
                 out.swap(buf);
@@ -31,6 +32,7 @@ bool getline_fd(int fd, std::string& out) {
             stash.erase(fd);
             return false;
         }
+        
         stash.erase(fd);
         return false;
     }
