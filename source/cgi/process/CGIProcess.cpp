@@ -3,6 +3,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <cstdlib>
+#include <fcntl.h>
+#include <poll.h>
+#include <cstring>
+#include <errno.h>
 
 std::string CGIProcess::createErrorResponse(const std::string& message) {
 	return "Content-Type: text/html\r\n\r\n<h1>Erreur CGI</h1><p>" + message + "</p>";
@@ -46,18 +50,44 @@ std::string CGIProcess::handleParentProcess(int pipeIn[2], int pipeOut[2],
 	close(pipeIn[0]);
 	close(pipeOut[1]);
 	
+	fcntl(pipeIn[1], F_SETFL, O_NONBLOCK);
+	fcntl(pipeOut[0], F_SETFL, O_NONBLOCK);
+	
 	if (!inputData.empty()) {
-		write(pipeIn[1], inputData.c_str(), inputData.size());
+		size_t written = 0;
+		while (written < inputData.size()) {
+			struct pollfd pfd;
+			pfd.fd = pipeIn[1];
+			pfd.events = POLLOUT;
+			int ret = poll(&pfd, 1, 5000);
+			if (ret <= 0) break;
+			
+			ssize_t n = write(pipeIn[1], inputData.c_str() + written, inputData.size() - written);
+			if (n > 0) written += n;
+			else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) break;
+		}
 	}
 	close(pipeIn[1]);
 	
 	std::string result;
 	char buffer[1024];
-	ssize_t bytesRead;
 	
-	while ((bytesRead = read(pipeOut[0], buffer, sizeof(buffer) - 1)) > 0) {
-		buffer[bytesRead] = '\0';
-		result += buffer;
+	while (true) {
+		struct pollfd pfd;
+		pfd.fd = pipeOut[0];
+		pfd.events = POLLIN;
+		int ret = poll(&pfd, 1, 5000);
+		if (ret <= 0) break;
+		
+		ssize_t bytesRead = read(pipeOut[0], buffer, sizeof(buffer) - 1);
+		if (bytesRead > 0) {
+			buffer[bytesRead] = '\0';
+			result += buffer;
+		} else if (bytesRead == 0) {
+			break;
+		} else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+			break;
+		}
 	}
 	close(pipeOut[0]);
 	

@@ -85,6 +85,17 @@ std::string Request::getHeader(const std::string& key) const {
 	return "";
 }
 
+bool Request::isValidMethod() const {
+	// Only these methods are implemented (RFC 7231)
+	if (method == "GET") return true;
+	if (method == "POST") return true;
+	if (method == "DELETE") return true;
+	if (method == "HEAD") return true;
+	if (method == "OPTIONS") return true;
+	// PUT, PATCH, TRACE, CONNECT not implemented
+	return false;
+}
+
 void Request::debugPrint() const {
 	std::cout << BOLD << CYAN << "===== HTTP Request =====" << RESET << std::endl;
 
