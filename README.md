@@ -21,13 +21,13 @@ Voici ce qu’il reste à faire ou à vérifier pour être conforme au sujet :
 - Chunked requests : la fonction dechunkBody existe, à tester.
 - Body size limit : parsing dans la config, à tester.
 - Pas de fork hors CGI : OK.
-- 3 À tester et valider
+3 À tester et valider
 - Test POST/DELETE/GET sur différentes routes (upload, delete, CGI, statique).
 - Test d’upload de fichier (curl -F ou via formulaire HTML).
 - Test d’exécution CGI (POST et GET sur un script).
 - Test de redirection HTTP.
-- Test d’autoindex (directory listing).
+!- Test d’autoindex (directory listing). -> rv affichage index
 - Test d’erreur 404/403/405/413 (fichier manquant, méthode non autorisée, body trop gros).
-- Test multi-port (plusieurs serveurs dans la config).
+**- Test multi-port (plusieurs serveurs dans la config).
 - Test de robustesse (déconnexion, timeout, stress test).
 - Test navigateur (index.html + style.css + images).
