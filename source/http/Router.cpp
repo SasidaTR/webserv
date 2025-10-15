@@ -1,94 +1,167 @@
 #include "../../include/http/Router.hpp"
+#include "../../include/http/handlers/StaticFileHandler.hpp"
+#include "../../include/http/handlers/UploadHandler.hpp"
+#include "../../include/http/handlers/DeleteHandler.hpp"
+#include "../../include/http/handlers/DirectoryHandler.hpp"
 
 Router::Router(const ServerFlat& s) : server(s) {}
 
-std::string Router::getContentType(const std::string& path) const {
-	if (path.size() >= 5 && path.substr(path.size() - 5) == ".html") return "text/html";
-	if (path.size() >= 4 && path.substr(path.size() - 4) == ".css") return "text/css";
-	if (path.size() >= 3 && path.substr(path.size() - 3) == ".js") return "application/javascript";
-	if (path.size() >= 4 && path.substr(path.size() - 4) == ".png") return "image/png";
-	if (path.size() >= 4 && path.substr(path.size() - 4) == ".jpg") return "image/jpeg";
-	return "text/plain";
+const Location* Router::findMatchingLocation(const std::string& path) const {
+	const Location* bestMatch = NULL;
+	size_t bestMatchLen = 0;
+
+	for (size_t i = 0; i < server.locations.size(); ++i) {
+		const Location& loc = server.locations[i];
+		const std::string& locPath = loc.path;
+
+		if (path.size() >= locPath.size() &&
+		    path.substr(0, locPath.size()) == locPath) {
+			if (path.size() == locPath.size() ||
+			    (path.size() > locPath.size() && (path[locPath.size()] == '/' || locPath[locPath.size()-1] == '/'))) {
+				if (locPath.size() > bestMatchLen) {
+					bestMatch = &loc;
+					bestMatchLen = locPath.size();
+				}
+			}
+		}
+	}
+
+	return bestMatch;
 }
 
-bool Router::readFile(const std::string& path, std::string& content) const {
-	std::ifstream file(path.c_str(), std::ios::in | std::ios::binary);
-	if (!file) return false;
-	std::ostringstream ss;
-	ss << file.rdbuf();
-	content = ss.str();
+bool Router::isMethodAllowed(const Request& req, const Location* loc) const {
+	if (loc && !loc->loc_methods.empty()) {
+		for (size_t i = 0; i < loc->loc_methods.size(); ++i) {
+			if (loc->loc_methods[i] == req.getMethod()) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	if (!loc && req.getMethod() != "GET") {
+		return false;
+	}
+	
 	return true;
 }
 
-static bool isCGI(const Request &req)
-{
-    std::string temp = req.getTarget();
-
-    //prefix
-    int i = 0;
-    std::string prefix = "/cgi-bin/";
-    while (temp[i] && prefix[i]) {
-        if (temp[i] != prefix[i])
-            break;
-        ++i;
-    }
-    bool hasPrefix = (prefix[i] == '\0');
-
-    //postfix
-    std::string postfix = ".sh";
-    int len = 0;
-    while (postfix[len]) 
-		++len;
-    int slen = temp.size();
-    bool hasPostfix = false;
-    if (slen >= len) {
-        hasPostfix = true;
-        for (int j = 0; j < len; ++j) {
-            if (temp[slen - len + j] != postfix[j]) {
-                hasPostfix = false;
-                break;
-            }
-        }
-    }
-
-    return hasPrefix || hasPostfix;
+static size_t parseSize(const std::string& sizeStr) {
+	if (sizeStr.empty()) return 1048576; // 1MB default
+	
+	size_t value = 0;
+	size_t i = 0;
+	while (i < sizeStr.size() && sizeStr[i] >= '0' && sizeStr[i] <= '9') {
+		value = value * 10 + (sizeStr[i] - '0');
+		++i;
+	}
+	
+	if (i < sizeStr.size()) {
+		char unit = sizeStr[i];
+		if (unit == 'K' || unit == 'k') value *= 1024;
+		else if (unit == 'M' || unit == 'm') value *= 1024 * 1024;
+		else if (unit == 'G' || unit == 'g') value *= 1024 * 1024 * 1024;
+	}
+	
+	return value;
 }
-/*
-Response Router::handleCGI(){
 
+bool Router::checkBodySize(const Request& req, const Location* loc) const {
+	std::string bodyLimitStr = loc ? loc->client_max_body_size : server.client_max_body_size;
+	size_t maxSize = parseSize(bodyLimitStr);
+	
+	return req.getBody().size() <= maxSize;
 }
-*/
+
+std::string Router::resolvePath(const Request& req, const Location* loc) const {
+	std::string root = loc ? loc->root : server.root;
+	std::string index = loc ? loc->index : server.index;
+	std::string target = req.getTarget();
+	
+	size_t queryPos = target.find('?');
+	if (queryPos != std::string::npos) {
+		target = target.substr(0, queryPos);
+	}
+	
+	if (target == "/" || (loc && target == loc->path)) {
+		return root + "/" + index;
+	}
+	
+	return root + target;
+}
 
 Response Router::route(const Request& req) const {
 	Response resp;
 
-	if (isCGI(req))
-	{
-		//resp = handleCGI(resp, req);
+	// Check if HTTP method is implemented (RFC 7231)
+	if (!req.isValidMethod()) {
+		resp.setStatus(501);  // Not Implemented
+		resp.setErrorBody(501);
 		return resp;
 	}
 
-	if (req.getMethod() != "GET") {
+	std::string target = req.getTarget();
+	size_t queryPos = target.find('?');
+	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
+
+	const Location* loc = findMatchingLocation(pathOnly);
+
+	if (!checkBodySize(req, loc)) {
+		resp.setStatus(413);
+		resp.setErrorBody(413);
+		return resp;
+	}
+
+	if (loc && !loc->redirect_url.empty()) {
+		resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
+		resp.setRedirect(loc->redirect_url);
+		return resp;
+	}
+
+	if (loc && cgiHandler.canHandle(req, *loc)) {
+		return cgiHandler.execute(req, *loc);
+	}
+
+	if (!isMethodAllowed(req, loc)) {
 		resp.setStatus(405);
 		resp.setErrorBody(405);
 		return resp;
 	}
 
-	std::string path;
-	if (req.getTarget() == "/")
-		path = server.root + "/" + server.index;
-	else
-		path = server.root + req.getTarget();
+	std::string path = resolvePath(req, loc);
 
-	std::string body;
-	if (readFile(path, body)) {
-		resp.setStatus(200);
-		resp.setContentType(getContentType(path));
-		resp.setBody(body);
-	} else {
-		resp.setStatus(404);
-		resp.setErrorBody(404);
+	if (req.getMethod() == "POST") {
+		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+	}
+	
+	if (req.getMethod() == "DELETE") {
+		return DeleteHandler::handleDelete(path);
 	}
 
-	return resp;
+	if (DirectoryHandler::isDirectory(path)) {
+		std::string index = loc ? loc->index : server.index;
+		std::string indexPath = path + "/" + index;
+		
+		std::string body;
+		if (StaticFileHandler::readFile(indexPath, body)) {
+			resp.setStatus(200);
+			resp.setContentType(StaticFileHandler::getContentType(indexPath));
+			resp.setBody(body);
+			return resp;
+		}
+		
+		if (loc && loc->autoindex) {
+			std::string listing = DirectoryHandler::generateListing(path, pathOnly);
+			resp.setStatus(200);
+			resp.setContentType("text/html");
+			resp.setBody(listing);
+			return resp;
+		}
+		
+		resp.setStatus(403);
+		resp.setErrorBody(403);
+		return resp;
+	}
+
+	return StaticFileHandler::serveFile(path);
 }

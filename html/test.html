@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webserv - Tests interactifs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .test-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .test-section h2::before {
+            content: "✓";
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .test-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .test-link {
+            display: block;
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .test-link:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .test-link small {
+            display: block;
+            font-size: 0.8em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .form-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input[type="text"],
+        input[type="file"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .result.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status-200 { background: #4caf50; color: white; }
+        .status-201 { background: #2196f3; color: white; }
+        .status-301 { background: #ff9800; color: white; }
+        .status-404 { background: #f44336; color: white; }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Webserv - Tests Interactifs</h1>
+        <p class="subtitle">Testez toutes les fonctionnalités de votre serveur HTTP</p>
+
+        <!-- Section 1: Tests GET -->
+        <div class="test-section">
+            <h2>Tests GET - Fichiers Statiques</h2>
+            <div class="test-links">
+                <a href="/" class="test-link">
+                    Page d'accueil
+                    <small>GET /</small>
+                </a>
+                <a href="/style.css" class="test-link">
+                    Fichier CSS
+                    <small>GET /style.css</small>
+                </a>
+                <a href="/main.js" class="test-link">
+                    Fichier JavaScript
+                    <small>GET /main.js</small>
+                </a>
+                <a href="/media/douzgane.jpg" class="test-link">
+                    Image JPEG
+                    <small>GET /media/douzgane.jpg</small>
+                </a>
+                <a href="/nonexistent.html" class="test-link">
+                    Fichier inexistant (404)
+                    <small>GET /nonexistent.html</small>
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 2: Directory Listing -->
+        <div class="test-section">
+            <h2>Directory Listing (autoindex)</h2>
+            <div class="test-links">
+                <a href="/files/" class="test-link">
+                    Listing /files/
+                    <small>autoindex: on</small>
+                </a>
+                <a href="/media/" class="test-link">
+                    Listing /media/
+                    <small>autoindex: on</small>
+                </a>
+                <a href="/cgi-bin/" class="test-link">
+                    Listing /cgi-bin/
+                    <small>autoindex: on</small>
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 3: Redirections -->
+        <div class="test-section">
+            <h2>Redirections HTTP</h2>
+            <div class="test-links">
+                <a href="/redirect" class="test-link">
+                    Redirection interne (301)
+                    <small>/redirect → /files</small>
+                </a>
+                <a href="/google" class="test-link">
+                    Redirection externe (302)
+                    <small>/google → google.com</small>
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 4: CGI -->
+        <div class="test-section">
+            <h2>CGI - Common Gateway Interface</h2>
+            <div class="test-links">
+                <a href="/cgi-bin/test.py" class="test-link">
+                    CGI Python GET
+                    <small>/cgi-bin/test.py</small>
+                </a>
+                <a href="/cgi-bin/test.py?name=webserv&version=2.0" class="test-link">
+                    CGI Python avec Query String
+                    <small>/cgi-bin/test.py?...</small>
+                </a>
+                <a href="/cgi-bin/hello.sh" class="test-link">
+                    CGI Bash
+                    <small>/cgi-bin/hello.sh</small>
+                </a>
+            </div>
+            
+            <!-- Formulaire POST CGI -->
+            <div class="form-section">
+                <h3>Test CGI POST</h3>
+                <form id="cgiForm">
+                    <div class="form-group">
+                        <label for="username">Nom d'utilisateur :</label>
+                        <input type="text" id="username" name="username" value="TestUser">
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Message :</label>
+                        <textarea id="message" name="message" rows="3">Hello from browser!</textarea>
+                    </div>
+                    <button type="submit">Envoyer au CGI</button>
+                </form>
+                <div id="cgiResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- Section 5: Upload -->
+        <div class="test-section">
+            <h2>Upload de fichiers (POST)</h2>
+            <div class="form-section">
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label for="filename">Nom du fichier :</label>
+                        <input type="text" id="filename" name="filename" value="test_upload.txt">
+                    </div>
+                    <div class="form-group">
+                        <label for="content">Contenu :</label>
+                        <textarea id="content" name="content" rows="5">Ceci est un test d'upload depuis le navigateur.</textarea>
+                    </div>
+                    <button type="submit">Upload fichier</button>
+                </form>
+                <div id="uploadResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- Section 6: DELETE -->
+        <div class="test-section">
+            <h2>Suppression de fichiers (DELETE)</h2>
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="deleteFile">Fichier à supprimer :</label>
+                    <input type="text" id="deleteFile" value="/files/test_upload.txt">
+                </div>
+                <button onclick="deleteFile()">Supprimer fichier</button>
+                <div id="deleteResult" class="result"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Webserv v2.0</strong> - Serveur HTTP en C++98</p>
+            <p>Projet 42 - Octobre 2025</p>
+        </div>
+    </div>
+
+    <script>
+        // Test CGI POST
+        document.getElementById('cgiForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('cgiResult');
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/cgi-bin/post_test.py', {
+                    method: 'POST',
+                    body: new URLSearchParams(formData)
+                });
+                
+                const text = await response.text();
+                resultDiv.className = 'result show';
+                resultDiv.innerHTML = `
+                    <strong>Réponse du CGI :</strong>
+                    <span class="status-badge status-${response.status}">Status: ${response.status}</span>
+                    <pre style="margin-top: 10px; overflow-x: auto;">${text}</pre>
+                `;
+            } catch (error) {
+                resultDiv.className = 'result show error';
+                resultDiv.innerHTML = `<strong>Erreur :</strong> ${error.message}`;
+            }
+        });
+
+        // Upload fichier
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('uploadResult');
+            const filename = document.getElementById('filename').value;
+            const content = document.getElementById('content').value;
+            
+            try {
+                const response = await fetch(`/files/${filename}`, {
+                    method: 'POST',
+                    body: content
+                });
+                
+                const text = await response.text();
+                resultDiv.className = 'result show';
+                resultDiv.innerHTML = `
+                    <strong>Upload réussi !</strong>
+                    <span class="status-badge status-${response.status}">Status: ${response.status}</span>
+                    <p>Fichier uploadé : <a href="/files/${filename}" target="_blank">/files/${filename}</a></p>
+                `;
+            } catch (error) {
+                resultDiv.className = 'result show error';
+                resultDiv.innerHTML = `<strong>Erreur :</strong> ${error.message}`;
+            }
+        });
+
+        // Supprimer fichier
+        async function deleteFile() {
+            const resultDiv = document.getElementById('deleteResult');
+            const filepath = document.getElementById('deleteFile').value;
+            
+            try {
+                const response = await fetch(filepath, {
+                    method: 'DELETE'
+                });
+                
+                resultDiv.className = 'result show';
+                if (response.status === 204 || response.status === 200) {
+                    resultDiv.innerHTML = `
+                        <strong>Suppression réussie !</strong>
+                        <span class="status-badge status-200">Status: ${response.status}</span>
+                        <p>Le fichier ${filepath} a été supprimé.</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result show error';
+                    resultDiv.innerHTML = `
+                        <strong>Erreur de suppression</strong>
+                        <span class="status-badge status-${response.status}">Status: ${response.status}</span>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result show error';
+                resultDiv.innerHTML = `<strong>Erreur :</strong> ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

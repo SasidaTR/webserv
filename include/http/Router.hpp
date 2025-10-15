@@ -2,18 +2,30 @@
 #define ROUTER_HPP
 
 #include <string>
-#include <fstream>
-#include <sstream>
 
 #include "Request.hpp"
 #include "Response.hpp"
 #include "../configuration/configParse.hpp"
+#include "../cgi/CGIHandler.hpp"
 
+/**
+ * Router - Orchestrateur principal du routage HTTP
+ * 
+ * Responsabilités :
+ * - Matcher les URLs avec les locations
+ * - Déléguer aux handlers appropriés (CGI, Static, Upload, Delete, Directory)
+ * - Gérer les redirections
+ * - Vérifier les méthodes HTTP autorisées
+ */
 class Router {
 	private:
 		const ServerFlat& server;
-		std::string getContentType(const std::string& path) const;
-		bool readFile(const std::string& path, std::string& content) const;
+		CGIHandler cgiHandler;
+		
+		const Location* findMatchingLocation(const std::string& path) const;
+		bool isMethodAllowed(const Request& req, const Location* loc) const;
+		std::string resolvePath(const Request& req, const Location* loc) const;
+		bool checkBodySize(const Request& req, const Location* loc) const;
 
 	public:
 		Router(const ServerFlat& s);

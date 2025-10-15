@@ -1,0 +1,25 @@
+# Executables
+webserv
+*.out
+
+# Object files
+objets/
+*.o
+*.d
+
+# Logs
+*.log
+server.log
+
+# Backup files
+*.old
+*.bak
+*~
+
+# Test files
+test.ssh
+
+# OS files
+.DS_Store
+.vscode/
+*.swp

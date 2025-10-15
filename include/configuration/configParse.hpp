@@ -12,8 +12,13 @@ struct Location {
     //cgi : 
     std::vector<std::string> cgi_ext;
     std::vector<std::string> cgi_path;
+    // redirect :
+    std::string redirect_url;
+    int redirect_code;
+    // upload :
+    std::string upload_dir;
 
-    Location() : autoindex(false) {}
+    Location() : autoindex(false), redirect_code(0) {}
 };
 
 struct ServerFlat {

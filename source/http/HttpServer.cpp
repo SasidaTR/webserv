@@ -6,11 +6,10 @@
 #include <string>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <cerrno>
 #include <poll.h>
+#include <ctime>
 
 
-// usfule status code
 struct ServerFlat;
 
 struct ConnState;
@@ -36,27 +35,28 @@ int atoi_b(char *str)
     return res * exp;
 }
 
-//partial receive
 static int try_recv_all_ready(int fd, std::string &buf) {
-    char tmp[10000];
+    char tmp[8192];
     for (;;) {
         ssize_t n = recv(fd, tmp, sizeof(tmp), 0);
-        if (n > 0) { buf.append(tmp, n); continue; }
-        if (n == 0) return -1; 
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-        if (errno == EINTR) continue;
-        return -1;
+        if (n > 0) { 
+            buf.append(tmp, n); 
+            if (buf.size() > 10485760) {
+                return -1;
+            }
+            continue; 
+        }
+        if (n == 0) return -1;
+        return 0;
     }
 }
 
-//partial send
 static int try_send_progress(int fd, const std::string &out, size_t &off) {
     while (off < out.size()) {
         ssize_t n = send(fd, out.data() + off, out.size() - off, 0);
         if (n > 0) { off += (size_t)n; continue; }
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return 0;
-        if (errno == EINTR) continue;
-        return -1;
+        if (n == 0) return -1;
+        return 0;
     }
     return 1;
 }
@@ -72,7 +72,9 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
 
     if (!st.resp_ready && (revents & POLLIN)) {
         int rr = try_recv_all_ready(fd, st.in);
-        if (rr < 0) return ACT_CLOSE;  
+        if (rr < 0) return ACT_CLOSE;
+        
+        st.last_activity = time(NULL);  
 
         if (!headers_complete(st.in)) {
             want |= ACT_READ;
@@ -89,13 +91,16 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
             st.out = resp.build();
             st.off = 0;
             st.resp_ready = true;
-			req.debugPrint();
+			// req.debugPrint();
         }
     }
 
     if (st.resp_ready && (revents & (POLLOUT | POLLIN))) {
         int wr = try_send_progress(fd, st.out, st.off);
         if (wr < 0) return ACT_CLOSE;
+        
+        st.last_activity = time(NULL);
+        
         if (wr == 0) {
             want |= ACT_WRITE;
         } else {

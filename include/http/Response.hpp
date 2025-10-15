@@ -11,6 +11,7 @@ class Response {
 		std::string reasonPhrase;
 		std::string contentType;
 		std::string body;
+		std::string redirectLocation;
 		static std::map<int, std::string> initReasonPhrases();
 		static const std::map<int, std::string> reasonPhrases;
 
@@ -20,6 +21,7 @@ class Response {
 		void setContentType(const std::string& ctype);
 		void setBody(const std::string& b);
 		void setErrorBody(int code, const std::string& errorDir = "html/error");
+		void setRedirect(const std::string& location);
 		std::string build() const;
 };
 
