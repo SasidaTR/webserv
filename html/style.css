@@ -214,6 +214,10 @@ footer {
 	height: 100%;
 }
 
+.error403 h1 {
+	z-index: 1000;
+}
+
 /* 404 */
 
 .error404 {

@@ -4,14 +4,6 @@
 #include <string>
 #include "../Response.hpp"
 
-/**
- * StaticFileHandler - Gestion des fichiers statiques
- * 
- * Responsabilités :
- * - Lire des fichiers depuis le disque
- * - Déterminer le Content-Type
- * - Construire des réponses HTTP pour fichiers statiques
- */
 class StaticFileHandler {
 public:
 	static bool readFile(const std::string& path, std::string& content);
