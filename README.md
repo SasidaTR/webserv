@@ -1,10 +1,10 @@
 Voici ce qu’il reste à faire ou à vérifier pour être conforme au sujet :
 
 1 Points généraux
-- Robustesse : le serveur ne doit jamais crasher, même en cas d’erreur mémoire ou d’exception (déjà bien géré avec les try/catch dans main.cpp).
-- Makefile : il est conforme (règles demandées, pas de relinking inutile, flags OK).
+**- Robustesse : le serveur ne doit jamais crasher, même en cas d’erreur mémoire ou d’exception (déjà bien géré avec les try/catch dans main.cpp).
+**- Makefile : il est conforme (règles demandées, pas de relinking inutile, flags OK).
 - C++98 : pas d’utilisation de C++11 (vérifie bien l’absence de auto, nullptr, std::to_string, etc.).
-- Pas de libs externes : OK.
+**- Pas de libs externes : OK.
 2 Fonctionnalités obligatoires
 - Configuration : le parsing du fichier de config est fait (configParse), mais vérifie que toutes les directives du sujet sont bien supportées (erreur - - par défaut, upload_dir, redirect, etc.).
 - Multi-port : déjà géré (listen_fds dans main.cpp).

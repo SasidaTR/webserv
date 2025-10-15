@@ -161,9 +161,13 @@ int main(int argc, char **argv) {
             close(listen_fds[i]);
 
     } catch (const std::exception& e) {
+        for (size_t i = 0; i < listen_fds.size(); ++i)
+            close(listen_fds[i]);
         std::cerr << "Fatal: " << e.what() << "\n";
         return 1;
     } catch (...) {
+        for (size_t i = 0; i < listen_fds.size(); ++i)
+            close(listen_fds[i]);
         std::cerr << "Fatal: unknown error\n";
         return 1;
     }
