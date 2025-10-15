@@ -1,15 +1,28 @@
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('sendPost')?.addEventListener('click', function() {
-        fetch('/test.txt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: 'Ceci est un test de POST'
-        }).then(r => r.text()).then(console.log);
-    });
+function updateFileContent() {
+	fetch('/cgi-bin/read.py')
+		.then(r => r.text())
+		.then(text => {
+			document.getElementById('fileContent').textContent = text;
+		})
+		.catch(console.error);
+}
 
-    document.getElementById('deleteFile')?.addEventListener('click', function() {
-        fetch('/test.txt', { method: 'DELETE' })
-            .then(r => r.text())
-            .then(console.log);
-    });
+document.addEventListener('DOMContentLoaded', function() {
+	updateFileContent();
+
+	document.getElementById('sendPost')?.addEventListener('click', function() {
+		fetch('/cgi-bin/post.py', {
+			method: 'POST',
+			headers: { 'Content-Type': 'text/plain' },
+			body: 'Ceci est le contenu du nouveau fichier'
+		})
+		.then(() => updateFileContent())
+		.catch(console.error);
+	});
+
+	document.getElementById('deleteFile')?.addEventListener('click', function() {
+		fetch('/cgi-bin/delete.py', { method: 'DELETE' })
+			.then(() => updateFileContent())
+			.catch(console.error);
+	});
 });
