@@ -75,12 +75,12 @@ std::string DirectoryHandler::generateListing(const std::string& dirPath, const 
 		
 		for (size_t i = 0; i < directories.size(); ++i) {
 			html << "<tr><td><a href=\"" << directories[i] << "/\">" 
-			     << directories[i] << "/</a></td><td>Directory</td></tr>\n";
+				<< directories[i] << "/</a></td><td>Directory</td></tr>\n";
 		}
 		
 		for (size_t i = 0; i < files.size(); ++i) {
 			html << "<tr><td><a href=\"" << files[i] << "\">" 
-			     << files[i] << "</a></td><td>File</td></tr>\n";
+				<< files[i] << "</a></td><td>File</td></tr>\n";
 		}
 	}
 	
