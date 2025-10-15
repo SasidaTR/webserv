@@ -3,14 +3,6 @@
 
 #include <string>
 
-/**
- * DirectoryHandler - Gestion de l'autoindex et du directory listing
- * 
- * Responsabilités :
- * - Vérifier si un chemin est un répertoire
- * - Générer des listings HTML de répertoires
- * - Gérer l'affichage stylé des fichiers et dossiers
- */
 class DirectoryHandler {
 public:
 	static bool isDirectory(const std::string& path);
