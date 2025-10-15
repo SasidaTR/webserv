@@ -39,13 +39,13 @@ int setup_server(int port, const ServerFlat& s) {
 }
 
 int accept_client(int server_fd) {
-    int cfd = accept(server_fd, NULL, NULL);
-    if (cfd >= 0) {
-        set_nonblocking(cfd);
-        return cfd;
-    }
-    // On error, return -1 and let poll() tell us when to retry
-    // No errno checking allowed per subject requirements
-    return -1;
+	int cfd = accept(server_fd, NULL, NULL);
+	if (cfd >= 0) {
+		set_nonblocking(cfd);
+		return cfd;
+	}
+	// On error, return -1 and let poll() tell us when to retry
+	// No errno checking allowed per subject requirements
+	return -1;
 }
 

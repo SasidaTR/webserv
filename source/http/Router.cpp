@@ -15,9 +15,9 @@ const Location* Router::findMatchingLocation(const std::string& path) const {
 		const std::string& locPath = loc.path;
 
 		if (path.size() >= locPath.size() &&
-		    path.substr(0, locPath.size()) == locPath) {
+			path.substr(0, locPath.size()) == locPath) {
 			if (path.size() == locPath.size() ||
-			    (path.size() > locPath.size() && (path[locPath.size()] == '/' || locPath[locPath.size()-1] == '/'))) {
+				(path.size() > locPath.size() && (path[locPath.size()] == '/' || locPath[locPath.size()-1] == '/'))) {
 				if (locPath.size() > bestMatchLen) {
 					bestMatch = &loc;
 					bestMatchLen = locPath.size();
