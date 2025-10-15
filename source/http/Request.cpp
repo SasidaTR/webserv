@@ -102,7 +102,7 @@ void Request::debugPrint() const {
 	std::cout << MAGENTA << "--- Headers ---" << RESET << std::endl;
 	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
 		std::cout << MAGENTA << it->first << ": " << RESET 
-		          << YELLOW << it->second << RESET << std::endl;
+				<< YELLOW << it->second << RESET << std::endl;
 	}
 
 	if (!body.empty()) {

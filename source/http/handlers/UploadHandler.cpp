@@ -10,8 +10,8 @@ std::string UploadHandler::extractFilename(const std::string& urlPath) {
 }
 
 std::string UploadHandler::determineUploadPath(const std::string& defaultPath,
-                                               const Location* loc,
-                                               const std::string& urlPath) {
+											const Location* loc,
+											const std::string& urlPath) {
 	if (loc && !loc->upload_dir.empty()) {
 		std::string filename = extractFilename(urlPath);
 		return loc->upload_dir + "/" + filename;
@@ -21,9 +21,9 @@ std::string UploadHandler::determineUploadPath(const std::string& defaultPath,
 }
 
 Response UploadHandler::handleUpload(const std::string& body,
-                                     const std::string& defaultPath,
-                                     const Location* loc,
-                                     const std::string& urlPath) {
+									const std::string& defaultPath,
+									const Location* loc,
+									const std::string& urlPath) {
 	Response resp;
 	
 	std::string uploadPath = determineUploadPath(defaultPath, loc, urlPath);
