@@ -31,3 +31,5 @@ Voici ce qu’il reste à faire ou à vérifier pour être conforme au sujet :
 **- Test multi-port (plusieurs serveurs dans la config).
 - Test de robustesse (déconnexion, timeout, stress test).
 - Test navigateur (index.html + style.css + images).
+
+- changer les wildcards du makefile
