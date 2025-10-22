@@ -132,12 +132,12 @@ header {
 
 .second {
 	display: flex;
-	justify-content: space-around;
 	align-items: center;
 	height: 144px;
 	min-width: 1024px;
 	margin-left: 80px;
 	padding: 0px 32px;
+	gap: 32px;
 	background-color: rgba(var(--black-primary), 1);
 }
 
@@ -145,7 +145,7 @@ header {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 20%;
+	flex: 1;
 	height: 20px;
 	padding: 20px;
 	border: none;
@@ -171,8 +171,9 @@ header {
 
 .test {
 	margin-left: 80px;
-	width: calc(100% - 80px);
-	min-height: calc(100vh - 64px - 256px - 144px - 32px - 32px);
+	padding: 20px;
+	width: calc(100% - 120px);
+	min-height: calc(100vh - 64px - 256px - 144px - 32px - 32px - 40px);
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
