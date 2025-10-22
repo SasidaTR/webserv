@@ -9,9 +9,7 @@
 #include <poll.h>
 #include <ctime>
 
-
 struct ServerFlat;
-
 struct ConnState;
 
 int atoi_b(char *str)

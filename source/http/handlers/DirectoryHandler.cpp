@@ -14,25 +14,86 @@ bool DirectoryHandler::isDirectory(const std::string& path) {
 
 std::string DirectoryHandler::generateHTMLHeader(const std::string& urlPath) {
 	std::ostringstream html;
-	
-	html << "<!DOCTYPE html>\n<html>\n<head>\n";
-	html << "<meta charset=\"UTF-8\">\n";
-	html << "<title>Index of " << urlPath << "</title>\n";
-	html << "<style>\n";
-	html << "body { font-family: Arial, sans-serif; margin: 40px; }\n";
-	html << "h1 { color: #333; }\n";
-	html << "table { border-collapse: collapse; width: 100%; }\n";
-	html << "th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }\n";
-	html << "th { background-color: #4CAF50; color: white; }\n";
-	html << "tr:hover { background-color: #f5f5f5; }\n";
-	html << "a { color: #0066cc; text-decoration: none; }\n";
-	html << "a:hover { text-decoration: underline; }\n";
-	html << "</style>\n</head>\n<body>\n";
-	html << "<h1>Index of " << urlPath << "</h1>\n";
-	html << "<table>\n<thead>\n<tr><th>Name</th><th>Type</th></tr>\n</thead>\n<tbody>\n";
-	
+	html << "<!DOCTYPE html>\n"
+		<< "<html lang=\"en\">\n"
+		<< "  <head>\n"
+		<< "    <meta charset=\"UTF-8\">\n"
+		<< "    <title>webserv</title>\n"
+		<< "    <link rel=\"stylesheet\" href=\"/style.css\">\n"
+		<< "  </head>\n"
+		<< "  <body>\n"
+		<< "    <header>\n"
+		<< "      <nav class=\"navbar\">\n"
+		<< "        <p class=\"search\">webserv</p>\n"
+		<< "        <button class=\"btn-danger\">Have a problem?</button>\n"
+		<< "      </nav>\n"
+		<< "    </header>\n"
+		<< "    <aside>\n"
+		<< "      <nav class=\"sidebar\">\n"
+		<< "      </nav>\n"
+		<< "    </aside>\n"
+		<< "    <main>\n"
+		<< "      <div class=\"first\">\n"
+		<< "        <div class=\"card\">\n"
+		<< "          <img class=\"photo\" src=\"/media/trischma.jpg\" alt=\"trischma\">\n"
+		<< "          <div>\n"
+		<< "            <h2>Tommy Rischmann</h2>\n"
+		<< "            <p>trischma</p>\n"
+		<< "          </div>\n"
+		<< "        </div>\n"
+		<< "        <div class=\"card\">\n"
+		<< "          <img class=\"photo\" src=\"/media/douzgane.jpg\" alt=\"douzgane\">\n"
+		<< "          <div>\n"
+		<< "            <h2>Driss Ouzgane</h2>\n"
+		<< "            <p>douzgane</p>\n"
+		<< "          </div>\n"
+		<< "        </div>\n"
+		<< "        <div class=\"card\">\n"
+		<< "          <img class=\"photo\" src=\"/media/jvittoz.jpg\" alt=\"jvittoz\">\n"
+		<< "          <div>\n"
+		<< "            <h2>Joseph Vittoz</h2>\n"
+		<< "            <p>jvittoz</p>\n"
+		<< "          </div>\n"
+		<< "        </div>\n"
+		<< "      </div>\n";
+
+	DIR* dir;
+	struct dirent* entry;
+	std::vector<std::string> files;
+
+	dir = opendir("./html/files");
+	if (dir != NULL) {
+		while ((entry = readdir(dir)) != NULL) {
+			std::string name = entry->d_name;
+			if (name != "." && name != "..")
+				files.push_back(name);
+		}
+		closedir(dir);
+	}
+
+	std::sort(files.begin(), files.end());
+
+	html << "      <div class=\"second\">\n";
+	for (size_t i = 0; i < files.size(); ++i) {
+		html << "        <a href=\"/files/" << files[i] 
+			<< "\" class=\"btn-primary\">" << files[i] << "</a>\n";
+	}
+	html << "      </div>\n";
+
+	html << "      <div class=\"test\">\n"
+		<< "        <p class=\"texte\" style=\"font-size: 40px;\">" << urlPath << "</p>\n"
+		<< "      </div>\n"
+		<< "    </main>\n"
+		<< "    <footer>\n"
+		<< "      <p>&copy; 2025 webserv. All rights reserved.</p>\n"
+		<< "    </footer>\n"
+		<< "    <script src=\"/main.js\"></script>\n"
+		<< "  </body>\n"
+		<< "</html>\n";
+
 	return html.str();
 }
+
 
 std::string DirectoryHandler::generateHTMLFooter() {
 	return "</tbody>\n</table>\n</body>\n</html>";
