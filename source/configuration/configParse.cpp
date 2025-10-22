@@ -38,7 +38,7 @@ static std::vector<std::string> split_words(const std::string &line) {
 
 configParse::configParse(const std::string &path) {
     int fd = open(path.c_str(), O_RDONLY);
-    if (!fd) throw std::runtime_error("config: cannot open file: " + path);
+    if (fd == -1) throw std::runtime_error("config: cannot open file: " + path);
 
     std::string line;
     while (getline_fd(fd, line)) {
