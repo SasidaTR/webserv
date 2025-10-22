@@ -211,10 +211,12 @@ int main(int argc, char **argv) {
 
                         client_owner[cfd] = fd;      // client -> listener fd
                         conns[cfd] = ConnState();    // init per-connection state
+                        conns[cfd].last_activity = time(NULL);
                     }
                 }
             }
-            if (!to_add.empty()) fds.insert(fds.end(), to_add.begin(), to_add.end());
+            if (!to_add.empty()) 
+                fds.insert(fds.end(), to_add.begin(), to_add.end());
 
             for (size_t i = 0; i < fds.size();) {
                 const int   fd = fds[i].fd;
