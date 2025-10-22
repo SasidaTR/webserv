@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		fetch('/cgi-bin/post.py', {
 			method: 'POST',
 			headers: { 'Content-Type': 'text/plain' },
-			body: 'Ceci est le contenu du nouveau fichier'
+			body: 'Ceci est le contenu du fichier test.txt'
 		})
 		.then(() => updateFileContent())
 		.catch(console.error);
