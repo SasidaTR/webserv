@@ -89,6 +89,8 @@ bool Request::isValidMethod() const {
 	if (method == "GET") return true;
 	if (method == "POST") return true;
 	if (method == "DELETE") return true;
+	if (method == "HEAD") return true;
+	if (method == "PUT") return true;
 	return false;
 }
 
