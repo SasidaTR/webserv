@@ -172,7 +172,7 @@ header {
 .test {
 	margin-left: 80px;
 	width: calc(100% - 80px);
-	height: calc(100vh - 64px - 256px - 144px - 32px - 32px);
+	min-height: calc(100vh - 64px - 256px - 144px - 32px - 32px);
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -184,6 +184,7 @@ header {
 }
 
 footer {
+	margin-left: 80px;
 	position: sticky;
 	bottom: 0;
 	height: 32px;
