@@ -1,7 +1,23 @@
 NAME = webserv
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -MMD -MP
-SRC = $(wildcard *.cpp source/*.cpp source/*/*.cpp source/*/*/*.cpp)
+SRC = main.cpp \
+	source/http/HttpServer.cpp \
+	source/http/Request.cpp \
+	source/http/Response.cpp \
+	source/http/Router.cpp \
+	source/http/handlers/DeleteHandler.cpp \
+	source/http/handlers/DirectoryHandler.cpp \
+	source/http/handlers/StaticFileHandler.cpp \
+	source/http/handlers/UploadHandler.cpp \
+	source/configuration/configParse.cpp \
+	source/configuration/getlinefd.cpp \
+	source/configuration/parseLocation.cpp \
+	source/cgi/CGIHandler.cpp \
+	source/cgi/process/CGIProcess.cpp \
+	source/cgi/response/CGIResponseBuilder.cpp \
+	source/cgi/utils/CGIEnvironment.cpp \
+	source/cgi/utils/CGIUtils.cpp
 OBJDIR = objets
 OBJ = $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRC))
 DEP = $(OBJ:.o=.d)
