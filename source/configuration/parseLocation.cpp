@@ -186,6 +186,7 @@ bool parse_location_block_from_line(int fd, const std::string &header, ServerFla
         {
             if (w.size() != 2) throw std::runtime_error("config alias: pb argument");
             loc.alias = w[1];
+            continue;
         }
 
         throw std::runtime_error(std::string("location: unknown directive: ") + key);
