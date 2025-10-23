@@ -65,19 +65,39 @@ bool Router::checkBodySize(const Request& req, const Location* loc) const {
 }
 
 std::string Router::resolvePath(const Request& req, const Location* loc) const {
-	std::string root = loc ? loc->root : server.root;
-	std::string index = loc ? loc->index : server.index;
-	std::string target = req.getTarget();
-	size_t queryPos = target.find('?');
-	if (queryPos != std::string::npos)
-		target = target.substr(0, queryPos);
+    std::string uri = req.getTarget();
 
-	if (DirectoryHandler::isDirectory(root + target))
-		return root + target;
+    size_t queryPos = uri.find('?');
+    if (queryPos != std::string::npos)
+        uri = uri.substr(0, queryPos);
 
-	if (target == "/" || (loc && target == loc->path))
-		return root + "/" + index;
-	return root + target;
+    std::string index = loc && !loc->index.empty() ? loc->index : server.index;
+    std::string base;
+    if (loc && !loc->alias.empty())
+        base = loc->alias;
+    else if (loc && !loc->root.empty())
+        base = loc->root;
+    else
+        base = server.root;
+    std::string fullpath;
+    if (loc && !loc->alias.empty()) {
+
+        if (uri.find(loc->path) == 0)
+            fullpath = base + uri.substr(loc->path.size());
+        else
+            fullpath = base + uri;
+    } 
+    else {
+        fullpath = base + uri;
+    }
+
+    if (DirectoryHandler::isDirectory(fullpath)) {
+        if (uri[uri.size() - 1] != '/')
+            return fullpath;
+        return fullpath + "/" + index;
+    }
+
+    return fullpath;
 }
 
 Response Router::route(const Request& req) const {

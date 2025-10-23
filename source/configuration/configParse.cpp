@@ -131,6 +131,7 @@ configParse::configParse(const std::string &path) {
                 {
                     if (w.size() != 2) throw std::runtime_error("config alias: pb argument");
                     srv.alias = w[1];
+                    continue;
                 }
                 close(fd);
                 throw std::runtime_error(std::string("config: unknown server directive: ") + key);
