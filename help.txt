@@ -1,0 +1,17 @@
+#get
+curl -v http://127.0.0.1:8080/
+
+#autoindex
+curl -v http://127.0.0.1:8080/files/
+
+#post
+curl -v -X POST -F "file=@test.txt" http://127.0.0.1:8080/files/
+
+#delete
+curl -v -X DELETE http://127.0.0.1:8080/files/test.txt
+
+#cgi
+curl -v http://127.0.0.1:8080/cgi-bin/test.py
+
+#redirect
+curl -v http://127.0.0.1:8080/google
