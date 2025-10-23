@@ -71,6 +71,10 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 	size_t queryPos = target.find('?');
 	if (queryPos != std::string::npos)
 		target = target.substr(0, queryPos);
+
+	if (DirectoryHandler::isDirectory(root + target))
+		return root + target;
+
 	if (target == "/" || (loc && target == loc->path))
 		return root + "/" + index;
 	return root + target;
@@ -105,6 +109,11 @@ Response Router::route(const Request& req) const {
 		return resp;
 	}
 	std::string path = resolvePath(req, loc);
+	if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
+		resp.setStatus(301);
+		resp.setRedirect(target + "/");
+		return resp;
+	}
 	if (req.getMethod() == "POST")
 		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
 	if (req.getMethod() == "PUT")
