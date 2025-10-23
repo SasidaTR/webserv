@@ -139,8 +139,8 @@ Response Router::route(const Request& req) const {
 				resp.setBody(listing);
 			return resp;
 		}
-		resp.setStatus(403);
-		resp.setErrorBody(403);
+		resp.setStatus(404);
+		resp.setErrorBody(404);
 		return resp;
 	}
 	Response fileResp = StaticFileHandler::serveFile(path);
