@@ -6,6 +6,7 @@ struct Location {
     std::string path;
     std::string root;
     std::string index;
+    std::string alias;
     bool autoindex;
     std::vector<std::string> loc_methods;
     std::string client_max_body_size;
@@ -26,6 +27,7 @@ struct ServerFlat {
     std::string host;
     std::string port;
     std::string root;
+    std::string alias;
     std::string index;
     std::string client_max_body_size;
     std::vector<std::string> ser_methods;
