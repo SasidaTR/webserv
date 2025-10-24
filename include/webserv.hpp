@@ -1,7 +1,6 @@
 #ifndef WEBSERV_HPP
 #define WEBSERV_HPP
 
-// C++ headers
 #include <iostream>
 #include <string>
 #include <vector>
@@ -11,9 +10,7 @@
 #include <cstring>
 #include <cerrno>
 #include <csignal>
-#include <cstdlib> 
-
-// System headers
+#include <cstdlib>
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -25,10 +22,10 @@
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 
 struct ConnState {
-	std::string	in, out;
-	size_t		off;
-	bool		resp_ready;
-	time_t		last_activity;
+	std::string in, out;
+	size_t off;
+	bool resp_ready;
+	time_t last_activity;
 	ConnState() : off(0), resp_ready(false), last_activity(time(NULL)) {}
 };
 
