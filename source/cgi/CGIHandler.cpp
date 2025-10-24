@@ -1,53 +1,90 @@
 #include "../../include/cgi/CGIHandler.hpp"
+#include "../../include/configuration/configParse.hpp"   // ✅ add this line
 #include "../../include/cgi/utils/CGIUtils.hpp"
 #include "../../include/cgi/utils/CGIEnvironment.hpp"
 #include "../../include/cgi/process/CGIProcess.hpp"
 #include "../../include/cgi/response/CGIResponseBuilder.hpp"
 #include "../../include/http/Request.hpp"
 #include "../../include/http/Response.hpp"
-#include "../../include/configuration/configParse.hpp"
+
+
 #include <fstream>
+#include <algorithm>
+#include <cctype>
 
-/**
- * CGIHandler - Orchestrateur principal pour la gestion des scripts CGI
- */
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
 
-CGIHandler::CGIHandler() {
+std::string CGIHandler::extNoDotLower(std::string p) {
+    size_t dot = p.rfind('.');
+    if (dot != std::string::npos)
+        p = p.substr(dot + 1);
+    for (size_t i = 0; i < p.size(); ++i)
+        p[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(p[i])));
+    return p;
 }
 
-CGIHandler::~CGIHandler() {
+bool CGIHandler::hasExt(const std::vector<std::string>& exts, const std::string& e) {
+    for (size_t i = 0; i < exts.size(); ++i) {
+        std::string ext = exts[i];
+        if (!ext.empty() && ext[0] == '.')
+            ext = ext.substr(1);
+        std::string low = ext;
+        for (size_t j = 0; j < low.size(); ++j)
+            low[j] = static_cast<char>(std::tolower(static_cast<unsigned char>(low[j])));
+        if (low == e)
+            return true;
+    }
+    return false;
 }
 
-bool CGIHandler::canHandle(const Request& req, const Location& loc) const {
-	return CGIUtils::isScriptFile(req.getTarget(), loc);
+std::string CGIHandler::pickRunner(const Location& loc, const std::string& ext) {
+	(void)ext;
+	
+    if (loc.cgi_path.empty())
+        return "";
+    // Very simple: return first defined runner (cgi_path[0])
+    // For example: /usr/bin/python3 or ./ubuntu_cgi_tester
+    return loc.cgi_path[0];
 }
 
-Response CGIHandler::execute(const Request& req, const Location& loc) const {
-	std::string url = req.getTarget();
-	std::string scriptPath = CGIUtils::cleanUrl(url);
-	std::string fullScriptPath = loc.root + scriptPath;
-	
-	std::ifstream file(fullScriptPath.c_str());
-	if (!file.good()) {
-		Response resp;
-		resp.setStatus(404);
-		resp.setErrorBody(404);
-		return resp;
-	}
-	file.close();
-	
-	std::string interpreter = CGIUtils::findInterpreter(fullScriptPath, loc);
-	if (interpreter.empty()) {
-		Response resp;
-		resp.setStatus(500);
-		resp.setContentType("text/html");
-		resp.setBody("<h1>Erreur 500</h1><p>Pas d'interpréteur trouvé pour ce script</p>");
-		return resp;
-	}
-	
-	std::map<std::string, std::string> env = CGIEnvironment::prepare(req, fullScriptPath);
-	
-	std::string scriptOutput = CGIProcess::runScript(interpreter, fullScriptPath, env, req.getBody());
-	
-	return CGIResponseBuilder::buildResponse(scriptOutput);
+// -----------------------------------------------------------------------------
+// Main logic
+// -----------------------------------------------------------------------------
+
+CGIHandler::CGIHandler() {}
+CGIHandler::~CGIHandler() {}
+
+bool CGIHandler::canHandle(const Request& req, const Location& loc, const std::string& resolvedPath) const {
+    (void)resolvedPath;
+    std::string ext = extNoDotLower(req.getTarget());
+    return hasExt(loc.cgi_ext, ext);
+}
+
+Response CGIHandler::execute(const Request& req, const Location& loc, const std::string& resolvedPath) const {
+    Response resp;
+
+    std::ifstream file(resolvedPath.c_str());
+    if (!file.good()) {
+        resp.setStatus(404);
+        resp.setErrorBody(404);
+        return resp;
+    }
+    file.close();
+
+    std::string ext = extNoDotLower(resolvedPath);
+    std::string runner = pickRunner(loc, ext);
+    if (runner.empty()) {
+        resp.setStatus(500);
+        resp.setContentType("text/html");
+        resp.setBody("<h1>500 Internal Server Error</h1><p>No CGI runner found.</p>");
+        return resp;
+    }
+
+    // Prepare environment and execute CGI
+    std::map<std::string, std::string> env = CGIEnvironment::prepare(req, resolvedPath);
+    std::string scriptOutput = CGIProcess::runScript(runner, resolvedPath, env, req.getBody());
+
+    return CGIResponseBuilder::buildResponse(scriptOutput);
 }
