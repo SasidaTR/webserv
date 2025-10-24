@@ -61,22 +61,26 @@ size_t CGIResponseBuilder::findHeaderEnd(const std::string& scriptOutput) {
 }
 
 Response CGIResponseBuilder::buildResponse(const std::string& scriptOutput) {
-	Response resp;
-	
-	size_t headerEnd = findHeaderEnd(scriptOutput);
-	
-	if (headerEnd == std::string::npos) {
-		resp.setStatus(200);
-		resp.setContentType("text/html");
-		resp.setBody(scriptOutput);
-		return resp;
-	}
-	
-	std::string headers = scriptOutput.substr(0, headerEnd - 2);
-	std::string body = scriptOutput.substr(headerEnd);
-	
-	parseHeaders(headers, resp);
-	resp.setBody(body);
-	
-	return resp;
+    Response resp;
+
+    size_t headerEnd = scriptOutput.find("\r\n\r\n");
+    size_t sepLen = 4;
+    if (headerEnd == std::string::npos) {
+        headerEnd = scriptOutput.find("\n\n");
+        sepLen = 2;
+    }
+
+    if (headerEnd == std::string::npos) {
+        resp.setStatus(200);
+        resp.setContentType("text/html");
+        resp.setBody(scriptOutput);
+        return resp;
+    }
+
+    std::string headers = scriptOutput.substr(0, headerEnd);
+    std::string body    = scriptOutput.substr(headerEnd + sepLen);
+
+    parseHeaders(headers, resp);
+    resp.setBody(body);
+    return resp;
 }
