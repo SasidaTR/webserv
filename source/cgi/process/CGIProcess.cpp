@@ -8,6 +8,7 @@
 #include <cstring>
 #include <errno.h>
 #include <sstream>
+#include <iostream>
 
 std::string CGIProcess::createErrorResponse(const std::string& message) {
 	return "Status: 500\r\nContent-Type: text/html\r\n\r\n<h1>Erreur CGI 500</h1><p>" + message + "</p>";
@@ -41,7 +42,15 @@ void CGIProcess::executeScript(const std::string& interpreter, const std::string
 		const_cast<char*>(scriptPath.c_str()),
 		NULL
 	};
-	
+	std::cerr << "\n--- CGI EXEC DEBUG ---\n";
+	std::cerr << "interpreter: " << interpreter << "\n";
+	std::cerr << "scriptPath: " << scriptPath << "\n";
+	for (size_t i = 0; i < envArray.size(); ++i) {
+		std::cerr << envArray[i] << "\n";
+	}
+	std::cerr << "--- END ENV ---\n" << std::endl;
+
+
 	execve(interpreter.c_str(), args, const_cast<char**>(&envArray[0]));
 	exit(127);
 }

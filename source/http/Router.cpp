@@ -39,7 +39,7 @@ bool Router::isMethodAllowed(const Request& req, const Location* loc) const {
 
 static size_t parseSize(const std::string& sizeStr) {
 	if (sizeStr.empty())
-		return 1048576;
+		return 1048576; // 1MB default
 	size_t value = 0;
 	size_t i = 0;
 	while (i < sizeStr.size() && sizeStr[i] >= '0' && sizeStr[i] <= '9') {
@@ -65,121 +65,134 @@ bool Router::checkBodySize(const Request& req, const Location* loc) const {
 }
 
 std::string Router::resolvePath(const Request& req, const Location* loc) const {
-    std::string uri = req.getTarget();
+	std::string uri = req.getTarget();
 
-    size_t queryPos = uri.find('?');
-    if (queryPos != std::string::npos)
-        uri = uri.substr(0, queryPos);
+	size_t queryPos = uri.find('?');
+	if (queryPos != std::string::npos)
+		uri = uri.substr(0, queryPos);
 
-    std::string index = loc && !loc->index.empty() ? loc->index : server.index;
-    std::string base;
-    if (loc && !loc->alias.empty())
-        base = loc->alias;
-    else if (loc && !loc->root.empty())
-        base = loc->root;
-    else
-        base = server.root;
-    std::string fullpath;
-    if (loc && !loc->alias.empty()) {
+	std::string index = (loc && !loc->index.empty()) ? loc->index : server.index;
 
-        if (uri.find(loc->path) == 0)
-            fullpath = base + uri.substr(loc->path.size());
-        else
-            fullpath = base + uri;
-    } 
-    else {
-        fullpath = base + uri;
-    }
+	std::string base;
+	if (loc && !loc->alias.empty())
+		base = loc->alias;
+	else if (loc && !loc->root.empty())
+		base = loc->root;
+	else
+		base = server.root;
 
-    if (DirectoryHandler::isDirectory(fullpath)) {
-        if (uri[uri.size() - 1] != '/')
-            return fullpath;
-        return fullpath + "/" + index;
-    }
+	std::string fullpath;
+	if (loc && !loc->alias.empty()) {
+		if (uri.find(loc->path) == 0)
+			fullpath = base + uri.substr(loc->path.size());
+		else
+			fullpath = base + uri;
+	} else {
+		fullpath = base + uri;
+	}
 
-    return fullpath;
+	if (DirectoryHandler::isDirectory(fullpath)) {
+		if (!uri.empty() && uri[uri.size() - 1] != '/')
+			return fullpath; // will redirect later
+		return fullpath + "/" + index;
+	}
+	return fullpath;
 }
 
 Response Router::route(const Request& req) const {
-    Response resp;
-    if (!req.isValidMethod()) {
-        resp.setStatus(501);
-        resp.setErrorBody(501);
-        return resp;
-    }
-    std::string target = req.getTarget();
-    size_t queryPos = target.find('?');
-    std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
-    const Location* loc = findMatchingLocation(pathOnly);
+	Response resp;
 
-    if (!checkBodySize(req, loc)) {
-        resp.setStatus(413);
-        resp.setErrorBody(413);
-        return resp;
-    }
-    if (loc && !loc->redirect_url.empty()) {
-        resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
-        resp.setRedirect(loc->redirect_url);
-        return resp;
-    }
+	// 1) Reject unknown methods at protocol level
+	if (!req.isValidMethod()) {
+		resp.setStatus(501);
+		resp.setErrorBody(501);
+		return resp;
+	}
 
-    // 6) Resolve filesystem path EARLY so CGI can see the real extension (alias/root applied)
-    //    ✨ changed: moved resolvePath() before CGI decision
-    std::string path = resolvePath(req, loc); // e.g. "/directory/youpi.bla" -> "./YoupiBanane/youpi.bla"
+	// 2) Find matching location (by URL path without query)
+	std::string target = req.getTarget();
+	size_t queryPos = target.find('?');
+	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
+	const Location* loc = findMatchingLocation(pathOnly);
 
-    // 7) Try CGI FIRST (using resolved path) to avoid falling through to static/404
-    //    ✨ changed: pass `path` to canHandle/execute so extension check uses the real file path
-    if (loc && cgiHandler.canHandle(req, *loc, path)) {   // <-- signature includes resolved path
-        return cgiHandler.execute(req, *loc, path);       // <-- same here
-    }
+	// 3) Enforce client_max_body_size (server or location)
+	if (!checkBodySize(req, loc)) {
+		resp.setStatus(413);
+		resp.setErrorBody(413);
+		return resp;
+	}
 
-    // 8) Method allow-list (unchanged logic). If your canHandle() already enforces GET/POST,
-    //    you can keep this here; CGI was already attempted above.
-    if (!isMethodAllowed(req, loc)) {
-        resp.setStatus(405);
-        resp.setErrorBody(405);
-        return resp;
-    }
+	// 4) Handle redirects defined on the location
+	if (loc && !loc->redirect_url.empty()) {
+		resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
+		resp.setRedirect(loc->redirect_url);
+		return resp;
+	}
 
-    if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
-        resp.setStatus(301);
-        resp.setRedirect(target + "/");
-        return resp;
-    }
+	// 5) Method allow-list (return 405 before handler selection)
+	if (!isMethodAllowed(req, loc)) {
+		resp.setStatus(405);
+		resp.setErrorBody(405);
+		return resp;
+	}
 
-    if (req.getMethod() == "POST")
-        return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
-    if (req.getMethod() == "PUT")
-        return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
-    if (req.getMethod() == "DELETE")
-        return DeleteHandler::handleDelete(path);
+	// 6) Compute filesystem path early (needed by CGI + static)
+	std::string path = resolvePath(req, loc); // alias/root applied
 
-    if (DirectoryHandler::isDirectory(path)) {
-        std::string index = loc ? loc->index : server.index;
-        std::string indexPath = path + "/" + index;
-        std::string body;
-        if (StaticFileHandler::readFile(indexPath, body)) {
-            resp.setStatus(200);
-            resp.setContentType(StaticFileHandler::getContentType(indexPath));
-            if (req.getMethod() != "HEAD")
-                resp.setBody(body);
-            return resp;
-        }
-        if (loc && loc->autoindex) {
-            std::string listing = DirectoryHandler::generateListing(path, pathOnly);
-            resp.setStatus(200);
-            resp.setContentType("text/html");
-            if (req.getMethod() != "HEAD")
-                resp.setBody(listing);
-            return resp;
-        }
-        resp.setStatus(404);
-        resp.setErrorBody(404);
-        return resp;
-    }
-    Response fileResp = StaticFileHandler::serveFile(path);
-    if (req.getMethod() == "HEAD")
-        fileResp.setBody("");
-    return fileResp;
+	// 7) Prefer CGI when extension matches this location's cgi_ext
+	if (loc && cgiHandler.canHandle(req, *loc, path)) {
+		// in Router::route, right before `return cgiHandler.execute(...)`:
+		std::cerr << "[ROUTER] CGI dispatch for path=" << pathOnly << " (fs=" << path << ")\n";
+
+		return cgiHandler.execute(req, *loc, path);
+	}
+
+	// 8) Directory trailing-slash redirect (only if we didn't run CGI)
+	if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
+		resp.setStatus(301);
+		resp.setRedirect(target + "/");
+		return resp;
+	}
+
+	// 9) Upload/PUT/POST handling (non-CGI)
+	if (req.getMethod() == "POST")
+		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+	if (req.getMethod() == "PUT")
+		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+	if (req.getMethod() == "DELETE")
+		return DeleteHandler::handleDelete(path);
+
+	// 10) Directory listing or index if enabled
+	if (DirectoryHandler::isDirectory(path)) {
+		std::string index = loc ? loc->index : server.index;
+		std::string indexPath = path + "/" + index;
+
+		std::string body;
+		if (StaticFileHandler::readFile(indexPath, body)) {
+			resp.setStatus(200);
+			resp.setContentType(StaticFileHandler::getContentType(indexPath));
+			if (req.getMethod() != "HEAD")
+				resp.setBody(body);
+			return resp;
+		}
+		if (loc && loc->autoindex) {
+			std::string listing = DirectoryHandler::generateListing(path, pathOnly);
+			resp.setStatus(200);
+			resp.setContentType("text/html");
+			if (req.getMethod() != "HEAD")
+				resp.setBody(listing);
+			return resp;
+		}
+		resp.setStatus(404);
+		resp.setErrorBody(404);
+		return resp;
+	}
+
+	// 11) Static files fallback
+	Response fileResp = StaticFileHandler::serveFile(path);
+	if (req.getMethod() == "HEAD")
+		fileResp.setBody("");
+	return fileResp;
 }
+
 
