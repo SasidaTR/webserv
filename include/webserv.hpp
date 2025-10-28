@@ -21,13 +21,53 @@
 
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 
+enum ConnPhase { IDLE, CGI_SPAWN, CGI_STREAM };
+
 struct ConnState {
-	std::string in, out;
-	size_t off;
-	bool resp_ready;
-	time_t last_activity;
-	ConnState() : off(0), resp_ready(false), last_activity(time(NULL)) {}
+    std::string in;           // raw recv buffer (request bytes)
+    std::string out;          // bytes to send to client (final or interim 100)
+    size_t      off;          // write offset into 'out'
+    bool        resp_ready;   // when 'out' has something to flush
+    time_t      last_activity;
+
+    std::string cgi_script;       // resolved filesystem path to script
+    std::string cgi_interpreter;  // interpreter path (e.g. /bin/sh, python3, tester)
+    std::string cgi_cwd;          // optional working dir (dirname of script)
+
+    pid_t cgi_pid;
+    int   cgi_in;                 // parent writes -> child's stdin
+    int   cgi_out;                // parent reads  <- child's stdout/stderr (merged or stdout)
+    bool  cgi_in_open;
+    bool  cgi_out_open;
+
+    std::string cgi_raw;          // raw bytes read from CGI stdout
+
+    size_t      body_expected;    // from Content-Length (0 if absent)
+    size_t      body_received;    // how many bytes read from client so far
+    bool        chunked;          // Transfer-Encoding: chunked?
+    bool        body_done;        // set when entire body consumed (CL reached or chunked end)
+    std::string body_buf;         // bridge buffer: client -> (we write) -> CGI stdin
+    size_t      cgi_written;      // bytes already written from body_buf into cgi_in
+
+    ConnPhase   phase;
+
+    int         client_fd;
+
+    ConnState()
+        : in(), out(), off(0), resp_ready(false),
+          last_activity(time(NULL)),
+          cgi_script(), cgi_interpreter(), cgi_cwd(),
+          cgi_pid(-1), cgi_in(-1), cgi_out(-1),
+          cgi_in_open(false), cgi_out_open(false),
+          cgi_raw(),
+          body_expected(0), body_received(0),
+          chunked(false), body_done(true),
+          body_buf(), cgi_written(0),
+          phase(IDLE),
+          client_fd(-1)
+    {}
 };
+
 
 class configParse;
 
@@ -38,5 +78,7 @@ int setup_server(int port, const ServerFlat& s);
 int accept_client(int server_fd);
 void handle_client(int client_fd, const ServerFlat& server);
 bool getline_fd(int fd, std::string& out);
+void spawn_cgi(ConnState& st);
+void build_http_from_cgi(ConnState& st);
 
 #endif

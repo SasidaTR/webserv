@@ -1,5 +1,5 @@
-#include "../../../include/cgi/process/CGIProcess.hpp"
-#include "../../../include/cgi/utils/CGIEnvironment.hpp"
+#include "../../include/cgi/CGIProcess.hpp"
+#include "../../include/cgi/CGIEnvironment.hpp"
 #include <sys/wait.h>
 #include <unistd.h>
 #include <cstdlib>

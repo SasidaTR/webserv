@@ -1,9 +1,9 @@
 #include "../../include/cgi/CGIHandler.hpp"
 #include "../../include/configuration/configParse.hpp"   // ✅ add this line
-#include "../../include/cgi/utils/CGIUtils.hpp"
-#include "../../include/cgi/utils/CGIEnvironment.hpp"
-#include "../../include/cgi/process/CGIProcess.hpp"
-#include "../../include/cgi/response/CGIResponseBuilder.hpp"
+#include "../../include/cgi/CGIUtils.hpp"
+#include "../../include/cgi/CGIEnvironment.hpp"
+#include "../../include/cgi/CGIProcess.hpp"
+#include "../../include/cgi/CGIResponseBuilder.hpp"
 #include "../../include/http/Request.hpp"
 #include "../../include/http/Response.hpp"
 

@@ -1,5 +1,5 @@
-#include "../../../include/cgi/utils/CGIUtils.hpp"
-#include "../../../include/configuration/configParse.hpp"
+#include "../../include/cgi/CGIUtils.hpp"
+#include "../../include/configuration/configParse.hpp"
 
 std::string CGIUtils::getFileExtension(const std::string& filename) {
 	size_t dotPos = filename.find_last_of('.');

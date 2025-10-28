@@ -102,59 +102,52 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 Response Router::route(const Request& req) const {
 	Response resp;
 
-	// 1) Reject unknown methods at protocol level
 	if (!req.isValidMethod()) {
 		resp.setStatus(501);
 		resp.setErrorBody(501);
 		return resp;
 	}
 
-	// 2) Find matching location (by URL path without query)
 	std::string target = req.getTarget();
 	size_t queryPos = target.find('?');
 	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
 	const Location* loc = findMatchingLocation(pathOnly);
 
-	// 3) Enforce client_max_body_size (server or location)
 	if (!checkBodySize(req, loc)) {
 		resp.setStatus(413);
 		resp.setErrorBody(413);
 		return resp;
 	}
 
-	// 4) Handle redirects defined on the location
 	if (loc && !loc->redirect_url.empty()) {
 		resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
 		resp.setRedirect(loc->redirect_url);
 		return resp;
 	}
 
-	// 5) Method allow-list (return 405 before handler selection)
 	if (!isMethodAllowed(req, loc)) {
 		resp.setStatus(405);
 		resp.setErrorBody(405);
 		return resp;
 	}
 
-	// 6) Compute filesystem path early (needed by CGI + static)
-	std::string path = resolvePath(req, loc); // alias/root applied
+	std::string path = resolvePath(req, loc);
 
-	// 7) Prefer CGI when extension matches this location's cgi_ext
+
+	// ICI DETECT LA CGI ET RENVOIE UNE REPONSE MINIMAL
 	if (loc && cgiHandler.canHandle(req, *loc, path)) {
-		// in Router::route, right before `return cgiHandler.execute(...)`:
-		std::cerr << "[ROUTER] CGI dispatch for path=" << pathOnly << " (fs=" << path << ")\n";
-
-		return cgiHandler.execute(req, *loc, path);
+		const std::string interp = !loc->cgi_path.empty() ? loc->cgi_path[0] : std::string();
+		resp.markAsCgi(path, interp);
+		return resp;
 	}
 
-	// 8) Directory trailing-slash redirect (only if we didn't run CGI)
+
 	if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
 		resp.setStatus(301);
 		resp.setRedirect(target + "/");
 		return resp;
 	}
 
-	// 9) Upload/PUT/POST handling (non-CGI)
 	if (req.getMethod() == "POST")
 		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
 	if (req.getMethod() == "PUT")
@@ -162,7 +155,6 @@ Response Router::route(const Request& req) const {
 	if (req.getMethod() == "DELETE")
 		return DeleteHandler::handleDelete(path);
 
-	// 10) Directory listing or index if enabled
 	if (DirectoryHandler::isDirectory(path)) {
 		std::string index = loc ? loc->index : server.index;
 		std::string indexPath = path + "/" + index;
@@ -188,7 +180,6 @@ Response Router::route(const Request& req) const {
 		return resp;
 	}
 
-	// 11) Static files fallback
 	Response fileResp = StaticFileHandler::serveFile(path);
 	if (req.getMethod() == "HEAD")
 		fileResp.setBody("");

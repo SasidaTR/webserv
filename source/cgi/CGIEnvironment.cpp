@@ -1,5 +1,5 @@
-#include "../../../include/cgi/utils/CGIEnvironment.hpp"
-#include "../../../include/http/Request.hpp"
+#include "../../include/cgi/CGIEnvironment.hpp"
+#include "../../include/http/Request.hpp"
 #include <cctype>
 #include <cstdlib>
 

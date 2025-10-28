@@ -1,5 +1,5 @@
-#include "../../../include/cgi/response/CGIResponseBuilder.hpp"
-#include "../../../include/http/Response.hpp"
+#include "../../include/cgi/CGIResponseBuilder.hpp"
+#include "../../include/http/Response.hpp"
 #include <sstream>
 #include <cstdlib>
 
