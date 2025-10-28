@@ -147,8 +147,10 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
     }
 
     if (want == 0)
+	{
         want = (st.phase == CGI_SPAWN || st.phase == CGI_STREAM) ? ACT_READ
                  : (st.resp_ready ? ACT_WRITE : ACT_READ);
+	}
     return want;
 }
 

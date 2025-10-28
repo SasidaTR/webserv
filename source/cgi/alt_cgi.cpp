@@ -6,6 +6,22 @@
 #include <cstring>
 #include <sstream>
 #include "../../include/webserv.hpp"
+#include "../../include/cgi/CGIEnvironment.hpp"
+
+// --- debug helpers (safe & C++98-friendly) ---
+#include <cstdio>
+#include <cstdlib>
+
+#define LOGCGI(fmt, ...) do { \
+    fprintf(stderr, "[CGI] " fmt "\n", ##__VA_ARGS__); \
+} while (0)
+
+static inline const char* nz(const char* p) { return p ? p : "<NULL>"; }
+
+static void log_env_kv(const char* k) {
+    const char* v = getenv(k);
+    LOGCGI("env %s=%s", k, nz(v));
+}
 
 // ---- tiny helper: set non-blocking on an fd ----
 static inline void set_nonblock_fd(int fd) {
@@ -18,29 +34,58 @@ void spawn_cgi(ConnState& st) {
     int pin[2];     // parent writes  -> child stdin
     int pout[2];    // child writes   -> parent reads
 
-    if (pipe(pin)  == -1) throw std::runtime_error("pipe(pin) failed");
-    if (pipe(pout) == -1) { close(pin[0]); close(pin[1]); throw std::runtime_error("pipe(pout) failed"); }
+    // ----- pre-flight: log interpreter & script and basic checks -----
+    LOGCGI("spawn requested: interp='%s' script='%s'",
+           st.cgi_interpreter.c_str(), st.cgi_script.c_str());
+
+    if (access(st.cgi_interpreter.c_str(), X_OK) != 0) {
+        LOGCGI("WARNING: interpreter not executable or not found (errno=%d: %s)",
+               errno, strerror(errno));
+    }
+    if (access(st.cgi_script.c_str(), R_OK) != 0) {
+        LOGCGI("WARNING: script not readable (errno=%d: %s)",
+               errno, strerror(errno));
+    }
+
+    // Log the key env vars we EXPECT to be present (since you use environ)
+    LOGCGI("checking expected CGI env vars:");
+    log_env_kv("GATEWAY_INTERFACE");
+    log_env_kv("REQUEST_METHOD");
+    log_env_kv("SERVER_PROTOCOL");
+    log_env_kv("SERVER_NAME");
+    log_env_kv("SERVER_PORT");
+    log_env_kv("SCRIPT_NAME");
+    log_env_kv("SCRIPT_FILENAME");
+    log_env_kv("QUERY_STRING");
+    log_env_kv("REMOTE_ADDR");
+    log_env_kv("PATH_INFO");
+    log_env_kv("PATH_TRANSLATED");
+    log_env_kv("CONTENT_TYPE");
+    log_env_kv("CONTENT_LENGTH");
+
+    if (pipe(pin)  == -1) { LOGCGI("pipe(pin) failed: %s", strerror(errno)); throw std::runtime_error("pipe(pin) failed"); }
+    if (pipe(pout) == -1) {
+        LOGCGI("pipe(pout) failed: %s", strerror(errno));
+        close(pin[0]); close(pin[1]);
+        throw std::runtime_error("pipe(pout) failed");
+    }
 
     pid_t pid = fork();
     if (pid < 0) {
+        LOGCGI("fork() failed: %s", strerror(errno));
         close(pin[0]); close(pin[1]); close(pout[0]); close(pout[1]);
         throw std::runtime_error("fork() failed");
     }
 
     if (pid == 0) {
         // ---- child process ----
-        // stdin  <- pin[0]
-        // stdout -> pout[1]
-        // stderr -> pout[1] (merge)
+        // (NO LOGS HERE to avoid polluting CGI stdout; stderr is also merged to stdout)
         dup2(pin[0], 0);
         dup2(pout[1], 1);
         dup2(pout[1], 2);
-
-        // close the copies we don't need
         close(pin[0]); close(pin[1]);
         close(pout[0]); close(pout[1]);
 
-        // Build argv: interpreter + script (or just script if no interpreter)
         std::vector<char*> argv;
         if (!st.cgi_interpreter.empty()) {
             argv.push_back(const_cast<char*>(st.cgi_interpreter.c_str()));
@@ -50,11 +95,17 @@ void spawn_cgi(ConnState& st) {
         }
         argv.push_back(NULL);
 
-        // Minimal environment; you can extend with CGI vars later
         extern char **environ;
+
+        std::map<std::string, std::string> envmap = CGIEnvironment::prepare(req, absScriptPath, st.remote_addr, scriptUrlPath);
+
+        std::vector<char*> envp = CGIEnvironment::createEnvArray(envmap);
+
+    // Then execve(interpreter, argv, &envp[0]);
+
         execve(argv[0], &argv[0], environ);
 
-        // If exec fails, emit a CGI-ish error and exit
+        // If exec fails, emit a valid CGI error to stdout (keeps behavior predictable)
         const char* msg = "Status: 500 Internal Server Error\r\n"
                           "Content-Type: text/plain\r\n\r\nexecve failed\n";
         write(1, msg, std::strlen(msg));
@@ -64,20 +115,22 @@ void spawn_cgi(ConnState& st) {
     // ---- parent process ----
     st.cgi_pid = pid;
 
-    // parent writes to child's stdin via pin[1]; close pin[0]
-    st.cgi_in = pin[1];
-    close(pin[0]);
-
-    // parent reads child's stdout via pout[0]; close pout[1]
-    st.cgi_out = pout[0];
-    close(pout[1]);
+    st.cgi_in  = pin[1];  close(pin[0]);
+    st.cgi_out = pout[0]; close(pout[1]);
 
     set_nonblock_fd(st.cgi_in);
     set_nonblock_fd(st.cgi_out);
 
     st.cgi_in_open  = true;
     st.cgi_out_open = true;
+
+    LOGCGI("spawned pid=%d, cgi_in(fd)=%d, cgi_out(fd)=%d", (int)pid, st.cgi_in, st.cgi_out);
+    LOGCGI("body_expected=%zu chunked=%s body_done=%s",
+           (size_t)st.body_expected, st.chunked ? "true" : "false", st.body_done ? "true" : "false");
+
+    // NOTE: we are NOT changing behavior here (no close on GET); this is just logging.
 }
+
 
 // ---- small helper to map status code -> reason phrase ----
 static std::string http_reason_from_code(int code) {
