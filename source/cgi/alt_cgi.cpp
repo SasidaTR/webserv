@@ -6,7 +6,6 @@
 #include <cstring>
 #include <sstream>
 #include "../../include/webserv.hpp"
-#include "../../include/cgi/CGIEnvironment.hpp"
 
 // --- debug helpers (safe & C++98-friendly) ---
 #include <cstdio>
@@ -96,13 +95,6 @@ void spawn_cgi(ConnState& st) {
         argv.push_back(NULL);
 
         extern char **environ;
-
-        std::map<std::string, std::string> envmap = CGIEnvironment::prepare(req, absScriptPath, st.remote_addr, scriptUrlPath);
-
-        std::vector<char*> envp = CGIEnvironment::createEnvArray(envmap);
-
-    // Then execve(interpreter, argv, &envp[0]);
-
         execve(argv[0], &argv[0], environ);
 
         // If exec fails, emit a valid CGI error to stdout (keeps behavior predictable)
