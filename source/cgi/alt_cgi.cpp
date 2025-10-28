@@ -1,15 +1,19 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/wait.h>   // waitpid, WNOHANG
+#include <sys/wait.h>
 #include <cerrno>
 #include <cstring>
 #include <sstream>
 #include "../../include/webserv.hpp"
-
-// --- debug helpers (safe & C++98-friendly) ---
 #include <cstdio>
 #include <cstdlib>
+#include <vector>
+#include <string>
+#include <iostream>
+#include <cstdio>
+
+
 
 #define LOGCGI(fmt, ...) do { \
     fprintf(stderr, "[CGI] " fmt "\n", ##__VA_ARGS__); \
@@ -28,12 +32,20 @@ static inline void set_nonblock_fd(int fd) {
     if (fl != -1) fcntl(fd, F_SETFL, fl | O_NONBLOCK);
 }
 
+void log_env_connstate(const ConnState &st) {
+    LOGCGI("=== ConnState environment (%zu entries) ===", st.env.size());
+    for (size_t i = 0; i < st.env.size(); ++i) {
+        LOGCGI("env %s", st.env[i].c_str());
+    }
+    LOGCGI("=== End of ConnState environment ===");
+}
+
+
 // ---- spawn_cgi: fork/exec interpreter + script, set up pipes ----
 void spawn_cgi(ConnState& st) {
     int pin[2];     // parent writes  -> child stdin
     int pout[2];    // child writes   -> parent reads
 
-    // ----- pre-flight: log interpreter & script and basic checks -----
     LOGCGI("spawn requested: interp='%s' script='%s'",
            st.cgi_interpreter.c_str(), st.cgi_script.c_str());
 
@@ -46,7 +58,8 @@ void spawn_cgi(ConnState& st) {
                errno, strerror(errno));
     }
 
-    // Log the key env vars we EXPECT to be present (since you use environ)
+    log_env_connstate(st);
+
     LOGCGI("checking expected CGI env vars:");
     log_env_kv("GATEWAY_INTERFACE");
     log_env_kv("REQUEST_METHOD");
@@ -61,6 +74,7 @@ void spawn_cgi(ConnState& st) {
     log_env_kv("PATH_TRANSLATED");
     log_env_kv("CONTENT_TYPE");
     log_env_kv("CONTENT_LENGTH");
+    log_env_kv("PATH");
 
     if (pipe(pin)  == -1) { LOGCGI("pipe(pin) failed: %s", strerror(errno)); throw std::runtime_error("pipe(pin) failed"); }
     if (pipe(pout) == -1) {
@@ -77,8 +91,6 @@ void spawn_cgi(ConnState& st) {
     }
 
     if (pid == 0) {
-        // ---- child process ----
-        // (NO LOGS HERE to avoid polluting CGI stdout; stderr is also merged to stdout)
         dup2(pin[0], 0);
         dup2(pout[1], 1);
         dup2(pout[1], 2);
@@ -94,12 +106,24 @@ void spawn_cgi(ConnState& st) {
         }
         argv.push_back(NULL);
 
-        extern char **environ;
-        execve(argv[0], &argv[0], environ);
+        std::vector<char*> envp;
+        envp.reserve(st.env.size() + 1);
+        for (size_t i = 0; i < st.env.size(); ++i)
+            envp.push_back(const_cast<char*>(st.env[i].c_str()));
+        envp.push_back(NULL);
 
-        // If exec fails, emit a valid CGI error to stdout (keeps behavior predictable)
-        const char* msg = "Status: 500 Internal Server Error\r\n"
-                          "Content-Type: text/plain\r\n\r\nexecve failed\n";
+        for (size_t i = 0; i < st.env.size(); ++i)
+           LOGCGI("env %s", st.env[i].c_str());
+
+        log_env_connstate(st);
+
+
+        execve(argv[0], &argv[0], &envp[0]);
+
+
+        const char* msg =
+            "Status: 500 Internal Server Error\r\n"
+            "Content-Type: text/plain\r\n\r\nexecve failed\n";
         write(1, msg, std::strlen(msg));
         _exit(127);
     }
@@ -119,8 +143,6 @@ void spawn_cgi(ConnState& st) {
     LOGCGI("spawned pid=%d, cgi_in(fd)=%d, cgi_out(fd)=%d", (int)pid, st.cgi_in, st.cgi_out);
     LOGCGI("body_expected=%zu chunked=%s body_done=%s",
            (size_t)st.body_expected, st.chunked ? "true" : "false", st.body_done ? "true" : "false");
-
-    // NOTE: we are NOT changing behavior here (no close on GET); this is just logging.
 }
 
 

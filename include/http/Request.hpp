@@ -23,6 +23,10 @@ public:
     std::string getTarget() const { return target; }
     std::string getVersion() const { return version; }
     std::string getHeader(const std::string& key) const;
+    std::string getTargetPath() const;     // URL path without query
+    std::string getQueryString() const;    // part after '?', may be empty
+    std::string getPathInfo() const;       // optional (usually empty, for CGI PATH_INFO)
+
     const std::map<std::string, std::string>& getHeaders() const { return headers; }
     std::string getBody() const { return body; }
     bool isValidMethod() const;

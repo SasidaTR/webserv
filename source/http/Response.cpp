@@ -16,7 +16,7 @@ std::map<int, std::string> Response::initReasonPhrases() {
 	m[404] = "Not Found";
 	m[405] = "Method Not Allowed";
 	m[413] = "Payload Too Large";
-	m[500] = "Internal Server Error";
+	m[500] = "Internal Server Error 1";
 	m[501] = "Not Implemented";
 	m[502] = "Bad Gateway";
 	m[503] = "Service Unavailable";

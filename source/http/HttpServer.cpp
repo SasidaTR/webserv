@@ -63,6 +63,11 @@ static bool headers_complete(const std::string &in) {
 	return in.find("\r\n\r\n") != std::string::npos;
 }
 
+static void addEnvVar(std::vector<std::string> &env, const std::string &key, const std::string &value) {
+    env.push_back(key + "=" + value);
+}
+
+
 static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) {
     st.phase           = CGI_SPAWN;
     st.cgi_script      = resp.cgiScript();
@@ -75,6 +80,18 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
 
     st.body_buf.clear();
     st.cgi_written = 0;
+
+    st.env.clear();
+
+    addEnvVar(st.env, "GATEWAY_INTERFACE", "CGI/1.1");
+    addEnvVar(st.env, "REQUEST_METHOD", req.getMethod());
+    addEnvVar(st.env, "SERVER_PROTOCOL", req.getVersion());
+    addEnvVar(st.env, "SCRIPT_NAME", req.getTargetPath());
+    addEnvVar(st.env, "SCRIPT_FILENAME", st.cgi_script);
+    addEnvVar(st.env, "QUERY_STRING", req.getQueryString());
+    addEnvVar(st.env, "PATH_INFO", req.getPathInfo());
+    addEnvVar(st.env, "PATH_TRANSLATED", st.cgi_script);
+
 
     if (req.hasExpect100()) {
         st.out = "HTTP/1.1 100 Continue\r\n\r\n";
