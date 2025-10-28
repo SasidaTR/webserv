@@ -19,13 +19,6 @@
     fprintf(stderr, "[CGI] " fmt "\n", ##__VA_ARGS__); \
 } while (0)
 
-static inline const char* nz(const char* p) { return p ? p : "<NULL>"; }
-
-static void log_env_kv(const char* k) {
-    const char* v = getenv(k);
-    LOGCGI("env %s=%s", k, nz(v));
-}
-
 // ---- tiny helper: set non-blocking on an fd ----
 static inline void set_nonblock_fd(int fd) {
     int fl = fcntl(fd, F_GETFL, 0);
@@ -59,22 +52,6 @@ void spawn_cgi(ConnState& st) {
     }
 
     log_env_connstate(st);
-
-    LOGCGI("checking expected CGI env vars:");
-    log_env_kv("GATEWAY_INTERFACE");
-    log_env_kv("REQUEST_METHOD");
-    log_env_kv("SERVER_PROTOCOL");
-    log_env_kv("SERVER_NAME");
-    log_env_kv("SERVER_PORT");
-    log_env_kv("SCRIPT_NAME");
-    log_env_kv("SCRIPT_FILENAME");
-    log_env_kv("QUERY_STRING");
-    log_env_kv("REMOTE_ADDR");
-    log_env_kv("PATH_INFO");
-    log_env_kv("PATH_TRANSLATED");
-    log_env_kv("CONTENT_TYPE");
-    log_env_kv("CONTENT_LENGTH");
-    log_env_kv("PATH");
 
     if (pipe(pin)  == -1) { LOGCGI("pipe(pin) failed: %s", strerror(errno)); throw std::runtime_error("pipe(pin) failed"); }
     if (pipe(pout) == -1) {
@@ -116,6 +93,10 @@ void spawn_cgi(ConnState& st) {
            LOGCGI("env %s", st.env[i].c_str());
 
         log_env_connstate(st);
+
+        LOGCGI("execve('%s', argv[0]='%s', argv[1]='%s')",
+           argv[0], argv[0], argv[1]);
+
 
 
         execve(argv[0], &argv[0], &envp[0]);
@@ -167,10 +148,18 @@ static std::string http_reason_from_code(int code) {
 // ---- build_http_from_cgi: turn st.cgi_raw into a full HTTP/1.1 response ----
 void build_http_from_cgi(ConnState& st) {
     const std::string& raw = st.cgi_raw;
-    const size_t sep = raw.find("\r\n\r\n");
 
+    // Log a small portion of the raw output for debugging
+    LOGCGI("CGI raw output (first 200 chars):\n%s",
+           raw.substr(0, 200).c_str());
+
+    // Find the header/body separator — accept either CRLFCRLF or LFLF
+    size_t sep = raw.find("\r\n\r\n");
+    if (sep == std::string::npos)
+        sep = raw.find("\n\n");
+
+    // If no headers detected → synthesize a 502 Bad Gateway
     if (sep == std::string::npos) {
-        // no CGI header block → synthesize a 502
         const std::string body = "Bad Gateway: CGI produced no headers\n";
         std::ostringstream os;
         os << "HTTP/1.1 502 Bad Gateway\r\n"
@@ -182,49 +171,67 @@ void build_http_from_cgi(ConnState& st) {
         return;
     }
 
+    // Split headers/body
     std::string head = raw.substr(0, sep);
-    std::string body = raw.substr(sep + 4);
+    std::string body = raw.substr(sep + ((raw[sep] == '\r') ? 4 : 2));
 
-    // parse CGI-style headers (CRLF-separated "Key: Value")
+    // Parse CGI-style headers
     std::istringstream hs(head);
     std::string line;
     int status_code = 200;
-    std::vector<std::pair<std::string,std::string> > hdrs;
+    std::vector<std::pair<std::string, std::string> > hdrs;
 
     while (std::getline(hs, line)) {
-        if (!line.empty() && line[line.size()-1] == '\r') line.erase(line.size()-1);
+        if (!line.empty() && (line[line.size() - 1] == '\r'))
+            line.erase(line.size() - 1);
+        if (line.empty())
+            continue;
+
         size_t colon = line.find(':');
-        if (colon == std::string::npos) continue;
+        if (colon == std::string::npos)
+            continue;
 
         std::string key = line.substr(0, colon);
         std::string val = line.substr(colon + 1);
-        while (!val.empty() && (val[0] == ' ' || val[0] == '\t')) val.erase(0,1);
+        while (!val.empty() && (val[0] == ' ' || val[0] == '\t'))
+            val.erase(0, 1);
 
-        // "Status: 200 OK"
+        // Handle "Status: 200 OK"
         if (key == "Status" || key == "Status:") {
             std::istringstream ss(val);
-            int c = 0; ss >> c;
-            if (c > 0) status_code = c;
+            int c = 0;
+            ss >> c;
+            if (c > 0)
+                status_code = c;
         } else {
             hdrs.push_back(std::make_pair(key, val));
         }
     }
 
+    // Ensure Content-Length and Connection headers
     bool has_cl = false, has_conn = false;
     for (size_t i = 0; i < hdrs.size(); ++i) {
         std::string k = hdrs[i].first;
-        for (size_t j=0;j<k.size();++j) if (k[j]>='A' && k[j]<='Z') k[j] = char(k[j]-'A'+'a');
-        if (k == "content-length") has_cl = true;
-        if (k == "connection")     has_conn = true;
+        for (size_t j = 0; j < k.size(); ++j)
+            if (k[j] >= 'A' && k[j] <= 'Z')
+                k[j] = char(k[j] - 'A' + 'a');
+        if (k == "content-length")
+            has_cl = true;
+        if (k == "connection")
+            has_conn = true;
     }
 
+    // Build the final HTTP/1.1 response
     std::ostringstream os;
-    os << "HTTP/1.1 " << status_code << " " << http_reason_from_code(status_code) << "\r\n";
+    os << "HTTP/1.1 " << status_code << " "
+       << http_reason_from_code(status_code) << "\r\n";
     for (size_t i = 0; i < hdrs.size(); ++i) {
         os << hdrs[i].first << ": " << hdrs[i].second << "\r\n";
     }
-    if (!has_cl)   os << "Content-Length: " << body.size() << "\r\n";
-    if (!has_conn) os << "Connection: close\r\n";
+    if (!has_cl)
+        os << "Content-Length: " << body.size() << "\r\n";
+    if (!has_conn)
+        os << "Connection: close\r\n";
     os << "\r\n" << body;
 
     st.out = os.str();
