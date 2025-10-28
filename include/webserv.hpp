@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 #include <ctime>
 
+
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 
 enum ConnPhase { IDLE, CGI_SPAWN, CGI_STREAM };
@@ -48,6 +49,8 @@ struct ConnState {
     bool        body_done;        // set when entire body consumed (CL reached or chunked end)
     std::string body_buf;         // bridge buffer: client -> (we write) -> CGI stdin
     size_t      cgi_written;      // bytes already written from body_buf into cgi_in
+
+    std::vector<std::string> env; 
 
     ConnPhase   phase;
 
