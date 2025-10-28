@@ -63,52 +63,95 @@ static bool headers_complete(const std::string &in) {
 	return in.find("\r\n\r\n") != std::string::npos;
 }
 
-int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
-	if (revents & (POLLHUP | POLLERR | POLLNVAL)) return ACT_CLOSE;
+static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) {
+    st.phase           = CGI_SPAWN;
+    st.cgi_script      = resp.cgiScript();
+    st.cgi_interpreter = resp.cgiInterpreter();
 
-	int want = 0;
+    st.body_expected = req.isChunked() ? 0 : req.contentLength();
+    st.body_received = 0;
+    st.chunked       = req.isChunked();
+    st.body_done     = (!st.chunked && st.body_expected == 0);
 
-	if (!st.resp_ready && (revents & POLLIN)) {
-		int rr = try_recv_all_ready(fd, st.in);
-		if (rr < 0) return ACT_CLOSE;
-		
-		st.last_activity = time(NULL);  
+    st.body_buf.clear();
+    st.cgi_written = 0;
 
-		if (!headers_complete(st.in)) {
-			want |= ACT_READ;
-		} else {
-			Request req; 
-			Response resp;
-			if (!req.parse(st.in)) {
-				resp.setStatus(400);
-				resp.setErrorBody(400);
-			} else {
-				Router router(s);
-				resp = router.route(req);
-			}
-			st.out = resp.build();
-			st.off = 0;
-			st.resp_ready = true;
-			req.debugPrint();
-		}
-	}
-
-	if (st.resp_ready && (revents & (POLLOUT | POLLIN))) {
-		int wr = try_send_progress(fd, st.out, st.off);
-		if (wr < 0) return ACT_CLOSE;
-		
-		st.last_activity = time(NULL);
-		
-		if (wr == 0) {
-			want |= ACT_WRITE;
-		} else {
-			return ACT_CLOSE;
-		}
-	}
-
-	if (want == 0) {
-		want = st.resp_ready ? ACT_WRITE : ACT_READ;
-	}
-	return want;
+    if (req.hasExpect100()) {
+        st.out = "HTTP/1.1 100 Continue\r\n\r\n";
+        st.off = 0;
+        st.resp_ready = true;
+        return ACT_WRITE | ACT_READ;
+    }
+    return ACT_READ;
 }
+
+
+
+int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
+    if (revents & (POLLHUP | POLLERR | POLLNVAL)) return ACT_CLOSE;
+
+    int want = 0;
+
+    if (!st.resp_ready && (revents & POLLIN)) {
+        int rr = try_recv_all_ready(fd, st.in);
+        if (rr < 0) return ACT_CLOSE;
+
+        st.last_activity = time(NULL);
+
+        if (!headers_complete(st.in)) {
+            want |= ACT_READ;
+        } else {
+            Request  req;
+            Response resp;
+
+            if (!req.parse(st.in)) {
+                resp.setStatus(400);
+                resp.setErrorBody(400);
+                st.out = resp.build();
+                st.off = 0;
+                st.resp_ready = true;
+                want |= ACT_WRITE;
+            } else {
+                Router router(s);
+                resp = router.route(req);
+
+                if (resp.isCgi()) {
+                    want |= prepare_cgi(req, resp, st);
+                } else {
+                    st.out = resp.build();
+                    st.off = 0;
+                    st.resp_ready = true;
+                    want |= ACT_WRITE;
+                    req.debugPrint();
+                }
+            }
+        }
+    }
+
+    if (st.resp_ready && (revents & (POLLOUT | POLLIN))) {
+        int wr = try_send_progress(fd, st.out, st.off);
+        if (wr < 0) return ACT_CLOSE;
+
+        st.last_activity = time(NULL);
+
+        if (wr == 0) {
+            want |= ACT_WRITE;
+        } else {
+            st.resp_ready = false;
+
+            if (st.phase == CGI_SPAWN || st.phase == CGI_STREAM)
+                want |= ACT_READ;
+            else
+                return ACT_CLOSE;
+        }
+    }
+
+    if (want == 0)
+	{
+        want = (st.phase == CGI_SPAWN || st.phase == CGI_STREAM) ? ACT_READ
+                 : (st.resp_ready ? ACT_WRITE : ACT_READ);
+	}
+    return want;
+}
+
 

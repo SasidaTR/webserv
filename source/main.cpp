@@ -1,5 +1,5 @@
-#include "./include/webserv.hpp"
-#include "./include/configuration/configParse.hpp"
+#include "../include/webserv.hpp"
+#include "../include/configuration/configParse.hpp"
 
 #include <set>
 #include <map>
@@ -14,8 +14,26 @@
 #include <fcntl.h>
 #include <cstring>
 #include <ctime>
+#include <sys/wait.h>
+
+enum FdKind { FD_LISTENER, FD_CLIENT, FD_CGI_IN, FD_CGI_OUT };
+struct FdOwner { FdKind kind; int client_fd; };
+static std::map<int, FdOwner> g_owner;
 
 int  handle_client(int fd, short revents, const ServerFlat& s, ConnState& st);
+void spawn_cgi(ConnState& st);
+void build_http_from_cgi(ConnState& st);
+
+static inline void add_pfd(std::vector<pollfd>& fds, int fd, short ev) {
+    struct pollfd p; p.fd = fd; p.events = ev; p.revents = 0; fds.push_back(p);
+}
+static inline void set_events(std::vector<pollfd>& fds, int fd, short ev) {
+    for (size_t i = 0; i < fds.size(); ++i) if (fds[i].fd == fd) { fds[i].events = ev; return; }
+}
+static inline void remove_fd(std::vector<pollfd>& fds, int fd) {
+    for (size_t i = 0; i < fds.size(); ++i) if (fds[i].fd == fd) { fds[i] = fds.back(); fds.pop_back(); return; }
+}
+
 
 
 int accept_client(int server_fd) {
@@ -39,12 +57,6 @@ struct ListenerKey {
 
 static inline std::string norm_host(const std::string& h) {
     return h.empty() ? std::string("0.0.0.0") : h;
-}
-
-static void set_events(std::vector<struct pollfd> &fds, int fd, short events) {
-    for (size_t k = 0; k < fds.size(); ++k) {
-        if (fds[k].fd == fd) { fds[k].events = events; return; }
-    }
 }
 
 int setup_server(int port, const ServerFlat& s) {
@@ -119,8 +131,7 @@ int main(int argc, char **argv) {
         for (size_t i = 0; i < servers.size(); ++i) {
             const int port = std::atoi(servers[i].port.c_str());
             const std::string chosen_host = ports_with_any.count(port)
-                                            ? "0.0.0.0"
-                                            : norm_host(servers[i].host);
+                                            ? "0.0.0.0" : norm_host(servers[i].host);
 
             ListenerKey key(chosen_host, port);
 
@@ -130,6 +141,7 @@ int main(int argc, char **argv) {
 
                 int lfd = setup_server(port, tmp);
                 if (lfd == -1) throw std::runtime_error("setup_server failed");
+                g_owner[lfd] = (FdOwner){ FD_LISTENER, -1 };
 
                 lfd_by_key[key] = lfd;
 
@@ -165,7 +177,7 @@ int main(int argc, char **argv) {
 
             time_t now = time(NULL);
             for (std::map<int, ConnState>::iterator it = conns.begin(); it != conns.end();) {
-                if (now - it->second.last_activity > 60) {
+                if (now - it->second.last_activity > 80) {
                     std::cout << "Timeout: closing connection fd=" << it->first << "\n";
                     close(it->first);
                     client_owner.erase(it->first);
@@ -212,21 +224,31 @@ int main(int argc, char **argv) {
                         client_owner[cfd] = fd;      // client -> listener fd
                         conns[cfd] = ConnState();    // init per-connection state
                         conns[cfd].last_activity = time(NULL);
+                        g_owner[cfd] = (FdOwner){ FD_CLIENT, cfd };
+                        conns[cfd].client_fd = cfd;     // optional, handy for logs
+
                     }
                 }
             }
             if (!to_add.empty()) 
                 fds.insert(fds.end(), to_add.begin(), to_add.end());
 
-            for (size_t i = 0; i < fds.size();) {
-                const int   fd = fds[i].fd;
-                const short ev = fds[i].revents;
+            // all changes here : 
+        for (size_t i = 0; i < fds.size(); ) {
+            const int   fd = fds[i].fd;
+            const short ev = fds[i].revents;
 
-                if (is_listener.count(fd) || !ev) { ++i; continue; }
+            if (is_listener.count(fd) || !ev) { ++i; continue; }
 
+            // Who owns this fd?
+            FdOwner ow = g_owner.count(fd) ? g_owner[fd] : (FdOwner){FD_CLIENT, fd};
+
+            // -------------------- CLIENT SOCKET --------------------
+            if (ow.kind == FD_CLIENT) {
                 std::map<int,int>::iterator it = client_owner.find(fd);
                 if (it == client_owner.end()) {
                     close(fd);
+                    g_owner.erase(fd);
                     fds[i] = fds.back(); fds.pop_back();
                     continue;
                 }
@@ -235,32 +257,140 @@ int main(int argc, char **argv) {
                 const std::vector<size_t>& cand = listen_owner[lfd];
                 if (cand.empty()) {
                     close(fd);
+                    g_owner.erase(fd);
                     conns.erase(fd);
                     client_owner.erase(it);
                     fds[i] = fds.back(); fds.pop_back();
                     continue;
                 }
                 size_t server_idx = cand[0];
-
                 ConnState &st = conns[fd];
+
+                // If we are already streaming to CGI and client sent body data, shovel it to the bridge buffer.
+                if (st.phase == CGI_STREAM && (ev & POLLIN)) {
+                    char buf[1<<16];
+                    ssize_t n = read(fd, buf, sizeof(buf));
+                    if (n > 0) {
+                        st.body_buf.append(buf, (size_t)n);
+                        st.body_received += (size_t)n;
+                        if (!st.chunked && st.body_expected && st.body_received >= st.body_expected)
+                            st.body_done = true;
+                        st.last_activity = time(NULL);
+                        if (st.cgi_in_open) set_events(fds, st.cgi_in, POLLOUT);
+                    } else if (n == 0) {
+                        st.body_done = true; // client closed upload early
+                    } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                        // fatal read error → close client and any CGI pipes
+                        if (st.cgi_in_open)  { close(st.cgi_in);  g_owner.erase(st.cgi_in);  remove_fd(fds, st.cgi_in); }
+                        if (st.cgi_out_open) { close(st.cgi_out); g_owner.erase(st.cgi_out); remove_fd(fds, st.cgi_out); }
+                        close(fd);
+                        g_owner.erase(fd);
+                        conns.erase(fd);
+                        client_owner.erase(it);
+                        fds[i] = fds.back(); fds.pop_back();
+                        continue;
+                    }
+                }
+
+                // Normal state machine (parse/route/send). May switch to CGI_SPAWN.
                 int act = handle_client(fd, ev, servers[server_idx], st);
 
                 if (act & ACT_CLOSE) {
+                    if (st.cgi_in_open)  { close(st.cgi_in);  g_owner.erase(st.cgi_in);  remove_fd(fds, st.cgi_in); }
+                    if (st.cgi_out_open) { close(st.cgi_out); g_owner.erase(st.cgi_out); remove_fd(fds, st.cgi_out); }
                     close(fd);
+                    g_owner.erase(fd);
                     conns.erase(fd);
                     client_owner.erase(it);
                     fds[i] = fds.back(); fds.pop_back();
                     continue;
                 }
 
+                // Spawn CGI if the handler just selected it
+                if (st.phase == CGI_SPAWN) {
+                    spawn_cgi(st); // sets st.cgi_{pid,in,out,*_open} and nonblocking
+                    if (st.cgi_in_open)  { add_pfd(fds, st.cgi_in,  POLLOUT); g_owner[st.cgi_in]  = (FdOwner){FD_CGI_IN,  fd}; }
+                    if (st.cgi_out_open) { add_pfd(fds, st.cgi_out, POLLIN);  g_owner[st.cgi_out] = (FdOwner){FD_CGI_OUT, fd}; }
+                    st.phase = CGI_STREAM;
+                }
+
+                // Update desired events for CLIENT
                 short next = 0;
                 if (act & ACT_READ)  next |= POLLIN;
                 if (act & ACT_WRITE) next |= POLLOUT;
                 if (next == 0) next = POLLIN;
-
                 set_events(fds, fd, next);
+
                 ++i;
+                continue;
             }
+
+            // -------------------- CGI STDIN (parent writes) --------------------
+            if (ow.kind == FD_CGI_IN) {
+                ConnState &st = conns[ow.client_fd];
+                if (ev & (POLLOUT | POLLERR | POLLHUP)) {
+                    if (st.cgi_in_open) {
+                        size_t avail = (st.body_buf.size() > st.cgi_written)
+                                    ? (st.body_buf.size() - st.cgi_written) : 0;
+                        if (avail) {
+                            ssize_t nwr = write(st.cgi_in, &st.body_buf[st.cgi_written], avail);
+                            if (nwr > 0) {
+                                st.cgi_written += (size_t)nwr;
+                            } else if (nwr < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                                close(st.cgi_in); st.cgi_in_open = false;
+                            }
+                        }
+                        // close stdin only when whole body is received *and* buffer drained
+                        bool drained = (st.cgi_written == st.body_buf.size());
+                        if (st.cgi_in_open && st.body_done && drained) {
+                            close(st.cgi_in); st.cgi_in_open = false;
+                            g_owner.erase(fd); remove_fd(fds, fd);
+                            continue; // we changed fds; do not ++i
+                        }
+                        if (st.cgi_in_open) set_events(fds, fd, POLLOUT);
+                    }
+                }
+                ++i;
+                continue;
+            }
+
+            // -------------------- CGI STDOUT (parent reads) --------------------
+            if (ow.kind == FD_CGI_OUT) {
+                ConnState &st = conns[ow.client_fd];
+                if (ev & (POLLIN | POLLHUP | POLLERR)) {
+                    char buf[1<<16];
+                    for (;;) {
+                        ssize_t nrd = read(st.cgi_out, buf, sizeof(buf));
+                        if (nrd > 0) st.cgi_raw.append(buf, (size_t)nrd);
+                        else if (nrd == 0) { close(st.cgi_out); st.cgi_out_open = false; break; }
+                        else if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                        else { close(st.cgi_out); st.cgi_out_open = false; break; }
+                    }
+                    if (!st.cgi_out_open) {
+                        g_owner.erase(fd);
+                        remove_fd(fds, fd);
+
+                        // convert CGI output to HTTP and send to client
+                        build_http_from_cgi(st);
+                        st.off = 0;
+                        st.resp_ready = true;
+                        set_events(fds, ow.client_fd, POLLOUT);
+
+                        int status = 0; (void)waitpid(st.cgi_pid, &status, WNOHANG);
+                        continue; // fds changed
+                    }
+                    set_events(fds, fd, POLLIN);
+                }
+                ++i;
+                continue;
+            }
+
+            // Fallback: unknown owner
+            close(fd);
+            g_owner.erase(fd);
+            fds[i] = fds.back(); fds.pop_back();
+        }
+
         }
 
         for (size_t i = 0; i < listen_fds.size(); ++i) close(listen_fds[i]);

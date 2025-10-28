@@ -23,7 +23,7 @@ std::map<int, std::string> Response::initReasonPhrases() {
 	return m;
 }
 
-Response::Response() : statusCode(200), reasonPhrase("OK"), contentType("text/html"), body(""), redirectLocation("") {}
+Response::Response() : statusCode(200), reasonPhrase("OK"), contentType("text/html"), body(""), redirectLocation(""), is_cgi(false) {}
 
 void Response::setStatus(int code) {
 	statusCode = code;
