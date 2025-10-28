@@ -91,11 +91,11 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 		fullpath = base + uri;
 	}
 
-	if (DirectoryHandler::isDirectory(fullpath)) {
-		if (!uri.empty() && uri[uri.size() - 1] != '/')
-			return fullpath; // will redirect later
-		return fullpath + "/" + index;
-	}
+	// if (DirectoryHandler::isDirectory(fullpath)) {
+	// 	if (!uri.empty() && uri[uri.size() - 1] != '/')
+	// 		return fullpath; // will redirect later
+	// 	return fullpath + "/" + index;
+	// }
 	return fullpath;
 }
 
