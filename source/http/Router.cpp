@@ -185,5 +185,3 @@ Response Router::route(const Request& req) const {
 		fileResp.setBody("");
 	return fileResp;
 }
-
-
