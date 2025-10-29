@@ -69,6 +69,11 @@ static void addEnvVar(std::vector<std::string> &env, const std::string &key, con
     env.push_back(key + "=" + value);
 }
 
+static std::string intToString(size_t n) {
+    std::ostringstream oss;
+    oss << n;
+    return oss.str();
+}
 
 static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) {
     st.phase           = CGI_SPAWN;
@@ -83,8 +88,20 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
     st.body_buf.clear();
     st.cgi_written = 0;
 
-    st.env.clear();
+    size_t header_end = st.in.find("\r\n\r\n");
+    if (header_end != std::string::npos) {
+        size_t body_start = header_end + 4;
+        if (st.in.size() > body_start) {
+            size_t avail = st.in.size() - body_start;
+            size_t take  = std::min(avail, st.body_expected);
+            st.body_buf.assign(st.in, body_start, take);
+            st.body_received = take;
+            if (st.body_received >= st.body_expected)
+                st.body_done = true;
+        }
+    }
 
+    st.env.clear();
     addEnvVar(st.env, "GATEWAY_INTERFACE", "CGI/1.1");
     addEnvVar(st.env, "REQUEST_METHOD", req.getMethod());
     addEnvVar(st.env, "SERVER_PROTOCOL", req.getVersion());
@@ -94,6 +111,10 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
     addEnvVar(st.env, "PATH_INFO", req.getPathInfo());
     addEnvVar(st.env, "PATH_TRANSLATED", st.cgi_script);
 
+    if (req.contentLength() > 0)
+        addEnvVar(st.env, "CONTENT_LENGTH", intToString(req.contentLength()));
+    if (!req.getHeader("content-type").empty())
+        addEnvVar(st.env, "CONTENT_TYPE", req.getHeader("content-type"));
 
     if (req.hasExpect100()) {
         st.out = "HTTP/1.1 100 Continue\r\n\r\n";
@@ -103,6 +124,7 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
     }
     return ACT_READ;
 }
+
 
 static const ServerFlat& select_virtual_host(const std::vector<size_t>& candidates,
                                              const std::vector<ServerFlat>& servers,
