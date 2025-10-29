@@ -1,17 +1,31 @@
-#get
+#get tests :
 curl -v http://127.0.0.1:8080/
 
-#autoindex
-curl -v http://127.0.0.1:8080/files/
 
-#post
-curl -v -X POST -F "file=@test.txt" http://127.0.0.1:8080/files/
 
-#delete
-curl -v -X DELETE http://127.0.0.1:8080/files/test.txt
 
-#cgi
-curl -v http://127.0.0.1:8080/cgi-bin/test.py
 
-#redirect
-curl -v http://127.0.0.1:8080/google
+
+#head tests :
+curl -I http://127.0.0.1:8080/directory/youpi.py
+curl -I HEAD http://127.0.0.1:8080/directory/youpi.sh
+curl -I http://127.0.0.1:8080
+
+#put tests :
+
+#post tests :
+
+#cgi test :
+curl -v http://127.0.0.1:8080/directory/youpi.bad_extension
+curl -v http://127.0.0.1:8080/directory/youpi.sh
+curl -v http://127.0.0.1:8080/put_test/youpi.sh
+curl -v http://127.0.0.1:8080/put_test/youpi.py
+
+#cgi + post tests :
+
+#multiple server tests :
+curl -v http://127.0.0.1:8080 
+curl -v http://127.0.0.1:8080/ -H "Host: webserv3" -> pb with multiple servers (main);
+
+
+#multiple users test :
