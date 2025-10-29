@@ -1,22 +1,6 @@
 #include "../include/webserv.hpp"
 #include "../include/configuration/configParse.hpp"
 
-#include <set>
-#include <map>
-#include <csignal>
-#include <iostream>
-#include <vector>
-#include <stdexcept>
-#include <poll.h>
-#include <errno.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <cstring>
-#include <ctime>
-#include <sys/wait.h>
-#include <csignal>
-
 
 static volatile bool g_stop_listen = false;
 

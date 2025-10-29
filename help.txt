@@ -22,6 +22,8 @@ curl -v http://127.0.0.1:8080/put_test/youpi.sh
 curl -v http://127.0.0.1:8080/put_test/youpi.py
 
 #cgi + post tests :
+curl -X POST -d "hello world" -v http://127.0.0.1:8080/directory/youpi_post.sh
+
 
 #multiple server tests :
 curl -v http://127.0.0.1:8080 
