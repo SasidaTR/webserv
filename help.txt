@@ -29,4 +29,5 @@ curl -v http://127.0.0.1:8080/ -H "Host: webserv3" -> pb with multiple servers (
 
 
 #multiple users test :
+./multi_user.sh (multiple TCP simulation)
 
