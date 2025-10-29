@@ -170,5 +170,3 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
 	}
     return want;
 }
-
-
