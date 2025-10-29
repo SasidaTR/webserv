@@ -15,6 +15,16 @@
 #include <cstring>
 #include <ctime>
 #include <sys/wait.h>
+#include <csignal>
+
+
+static volatile bool g_stop_listen = false;
+
+static void handle_sigint(int) {
+    g_stop_listen = true;
+    std::cerr << "\n[signal] SIGINT caught → closing listeners and waiting...\n";
+}
+
 
 enum FdKind { FD_LISTENER, FD_CLIENT, FD_CGI_IN, FD_CGI_OUT };
 struct FdOwner { FdKind kind; int client_fd; };
@@ -97,11 +107,17 @@ int setup_server(int port, const ServerFlat& s) {
 }
 
 int main(int argc, char **argv) {
+
+
     const char *config_file = "./basic.config";
     if (argc > 2) {
         std::cerr << "Usage: ./webserv <config>\n";
         return 1;
     }
+
+    std::signal(SIGPIPE, SIG_IGN);
+    std::signal(SIGINT, handle_sigint);
+
 
     std::vector<int> listen_fds;
     std::set<int>    is_listener;
@@ -169,6 +185,17 @@ int main(int argc, char **argv) {
             if (fds.empty()) break;
 
             int ret = poll(&fds[0], (nfds_t)fds.size(), 1000);
+            if (g_stop_listen && !listen_fds.empty()) {
+                std::cerr << "Closing all listeners...\n";
+                for (size_t i = 0; i < listen_fds.size(); ++i) {
+                    close(listen_fds[i]);
+                    is_listener.erase(listen_fds[i]);
+                    remove_fd(fds, listen_fds[i]);
+                }
+                listen_fds.clear();
+                break ;
+            }
+
             if (ret < 0) {
                 if (errno == EINTR) continue;
                 throw std::runtime_error("poll() failed");
@@ -369,7 +396,6 @@ int main(int argc, char **argv) {
                         g_owner.erase(fd);
                         remove_fd(fds, fd);
 
-                        // convert CGI output to HTTP and send to client
                         build_http_from_cgi(st);
                         st.off = 0;
                         st.resp_ready = true;
@@ -384,7 +410,6 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-            // Fallback: unknown owner
             close(fd);
             g_owner.erase(fd);
             fds[i] = fds.back(); fds.pop_back();
