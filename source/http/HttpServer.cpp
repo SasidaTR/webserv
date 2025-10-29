@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <poll.h>
+#include <algorithm>
+#include <cctype>
 #include <ctime>
 
 struct ServerFlat;
@@ -102,7 +104,33 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
     return ACT_READ;
 }
 
+static const ServerFlat& select_virtual_host(const std::vector<size_t>& candidates,
+                                             const std::vector<ServerFlat>& servers,
+                                             const Request& req,
+                                             const ServerFlat& fallback)
+{
+    std::string host = req.getHeader("host");
+    if (!host.empty()) {
+        size_t colon = host.find(':');
+        if (colon != std::string::npos)
+            host = host.substr(0, colon);
+        std::transform(host.begin(), host.end(), host.begin(), ::tolower);
+    }
 
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        const ServerFlat& srv = servers[candidates[i]];
+        if (srv.name == host)
+            return srv;
+    }
+    std::cout << "[DEBUG] Host='" << host << "' candidates=" << candidates.size() << "\n";
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        const ServerFlat& srv = servers[candidates[i]];
+        std::cout << "    candidate[" << i << "] name='" << srv.name
+                << "' root='" << srv.root << "'\n";
+    }
+
+    return fallback; // default
+}
 
 int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
     if (revents & (POLLHUP | POLLERR | POLLNVAL)) return ACT_CLOSE;
@@ -129,7 +157,11 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
                 st.resp_ready = true;
                 want |= ACT_WRITE;
             } else {
-                Router router(s);
+                const ServerFlat& chosen =
+                    (st.vhost_candidates && st.servers_all)
+                    ? select_virtual_host(*st.vhost_candidates, *st.servers_all, req, s)
+                    : s;
+                Router router(chosen);
                 resp = router.route(req);
 
                 if (resp.isCgi()) {

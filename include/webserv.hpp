@@ -22,6 +22,9 @@
 
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 
+
+struct ServerFlat;
+
 enum ConnPhase { IDLE, CGI_SPAWN, CGI_STREAM };
 
 struct ConnState {
@@ -30,6 +33,9 @@ struct ConnState {
     size_t      off;          // write offset into 'out'
     bool        resp_ready;   // when 'out' has something to flush
     time_t      last_activity;
+    std::string host_header;
+    const std::vector<size_t>* vhost_candidates;
+    const std::vector<ServerFlat>* servers_all;
 
     std::string cgi_script;       // resolved filesystem path to script
     std::string cgi_interpreter;  // interpreter path (e.g. /bin/sh, python3, tester)
@@ -58,7 +64,7 @@ struct ConnState {
 
     ConnState()
         : in(), out(), off(0), resp_ready(false),
-          last_activity(time(NULL)),
+          last_activity(time(NULL)), host_header(),
           cgi_script(), cgi_interpreter(), cgi_cwd(),
           cgi_pid(-1), cgi_in(-1), cgi_out(-1),
           cgi_in_open(false), cgi_out_open(false),

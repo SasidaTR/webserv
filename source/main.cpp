@@ -96,7 +96,6 @@ int setup_server(int port, const ServerFlat& s) {
     return server_fd;
 }
 
-
 int main(int argc, char **argv) {
     const char *config_file = "./basic.config";
     if (argc > 2) {
@@ -263,8 +262,10 @@ int main(int argc, char **argv) {
                     fds[i] = fds.back(); fds.pop_back();
                     continue;
                 }
-                size_t server_idx = cand[0];
                 ConnState &st = conns[fd];
+                st.vhost_candidates = &cand;
+                st.servers_all = &servers;
+                size_t server_idx = cand[0];
 
                 // If we are already streaming to CGI and client sent body data, shovel it to the bridge buffer.
                 if (st.phase == CGI_STREAM && (ev & POLLIN)) {
@@ -292,7 +293,6 @@ int main(int argc, char **argv) {
                     }
                 }
 
-                // Normal state machine (parse/route/send). May switch to CGI_SPAWN.
                 int act = handle_client(fd, ev, servers[server_idx], st);
 
                 if (act & ACT_CLOSE) {
@@ -306,7 +306,6 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                // Spawn CGI if the handler just selected it
                 if (st.phase == CGI_SPAWN) {
                     spawn_cgi(st); // sets st.cgi_{pid,in,out,*_open} and nonblocking
                     if (st.cgi_in_open)  { add_pfd(fds, st.cgi_in,  POLLOUT); g_owner[st.cgi_in]  = (FdOwner){FD_CGI_IN,  fd}; }
