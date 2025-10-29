@@ -10,15 +10,22 @@ function updateFileContent() {
 document.addEventListener('DOMContentLoaded', function() {
 	updateFileContent();
 
-	document.getElementById('sendPost')?.addEventListener('click', function() {
-		fetch('/cgi-bin/post.py', {
-			method: 'POST',
-			headers: { 'Content-Type': 'text/plain' },
-			body: 'Ceci est le contenu du nouveau fichier'
-		})
-		.then(() => updateFileContent())
-		.catch(console.error);
-	});
+	let btn = document.getElementById('sendPost')
+	btn.setAttribute('contenteditable', 'true')
+	btn.textContent = 'POST'
+	btn.addEventListener('keydown', function(e) {
+		if(e.key === 'Enter') {
+			e.preventDefault()
+			fetch('/cgi-bin/post.py', {
+				method: 'POST',
+				headers: { 'Content-Type': 'text/plain' },
+				body: btn.textContent
+			})
+			.then(() => updateFileContent())
+			.catch(console.error)
+			btn.textContent = ''
+		}
+	})
 
 	document.getElementById('deleteFile')?.addEventListener('click', function() {
 		fetch('/cgi-bin/delete.py', { method: 'DELETE' })
