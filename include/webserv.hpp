@@ -60,7 +60,8 @@ struct ConnState {
     bool        body_done;        // set when entire body consumed (CL reached or chunked end)
     std::string body_buf;         // bridge buffer: client -> (we write) -> CGI stdin
     size_t      cgi_written;      // bytes already written from body_buf into cgi_in
-
+    bool        expect_continue;
+    bool        reading_body;
     std::vector<std::string> env; 
 
     ConnPhase   phase;
@@ -76,8 +77,8 @@ struct ConnState {
           cgi_raw(),
           body_expected(0), body_received(0),
           chunked(false), body_done(true),
-          body_buf(), cgi_written(0),
-          phase(IDLE),
+          body_buf(), cgi_written(0), expect_continue(false),
+          reading_body(false), phase(IDLE),
           client_fd(-1)
     {}
 };
