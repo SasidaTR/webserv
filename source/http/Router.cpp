@@ -90,12 +90,6 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 	} else {
 		fullpath = base + uri;
 	}
-
-	// if (DirectoryHandler::isDirectory(fullpath)) {
-	// 	if (!uri.empty() && uri[uri.size() - 1] != '/')
-	// 		return fullpath; // will redirect later
-	// 	return fullpath + "/" + index;
-	// }
 	return fullpath;
 }
 
@@ -142,11 +136,11 @@ Response Router::route(const Request& req) const {
 	}
 
 
-	if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
-		resp.setStatus(301);
-		resp.setRedirect(target + "/");
-		return resp;
-	}
+	// if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
+	// 	resp.setStatus(301);
+	// 	resp.setRedirect(target + "/");
+	// 	return resp;
+	// }
 
 	if (req.getMethod() == "POST")
 		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
