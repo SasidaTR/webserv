@@ -94,13 +94,11 @@ bool Request::parse(const std::string& raw) {
 		}
 	}
 
-	// body (may be partial; that's OK — upstream state machine can stream more)
 	if (header_end + 4 < raw.size())
 		body = raw.substr(header_end + 4);
 	else
 		body.clear();
 
-	// normalize chunked → dechunk and set a Content-Length for convenience
 	if (isChunked()) {
 		body = dechunkBody(body);
 		std::ostringstream oss;
@@ -113,7 +111,6 @@ bool Request::parse(const std::string& raw) {
 	return true;
 }
 
-// Extracts path before '?'
 std::string Request::getTargetPath() const {
     size_t pos = target.find('?');
     if (pos == std::string::npos)
@@ -121,7 +118,6 @@ std::string Request::getTargetPath() const {
     return target.substr(0, pos);
 }
 
-// Extracts query string after '?'
 std::string Request::getQueryString() const {
     size_t pos = target.find('?');
     if (pos == std::string::npos || pos + 1 >= target.size())
@@ -129,9 +125,7 @@ std::string Request::getQueryString() const {
     return target.substr(pos + 1);
 }
 
-// PATH_INFO (for CGI). Usually empty unless you have extra segments after script name.
 std::string Request::getPathInfo() const {
-    // For now, return empty string — you can later extend this to split after the script.
     return "";
 }
 
