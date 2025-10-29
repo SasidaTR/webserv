@@ -60,6 +60,7 @@ void spawn_cgi(ConnState& st) {
         throw std::runtime_error("pipe(pout) failed");
     }
 
+    std::cout << "buffer : " << st.body_buf << std::endl;
     pid_t pid = fork();
     if (pid < 0) {
         LOGCGI("fork() failed: %s", strerror(errno));
