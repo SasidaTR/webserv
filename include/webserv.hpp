@@ -18,6 +18,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <ctime>
+#include <set>
+#include <poll.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
 
 
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
