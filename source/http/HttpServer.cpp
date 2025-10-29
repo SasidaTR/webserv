@@ -36,20 +36,23 @@ int atoi_b(char *str)
 }
 
 static int try_recv_all_ready(int fd, std::string &buf) {
-	char tmp[8192];
-	for (;;) {
-		ssize_t n = recv(fd, tmp, sizeof(tmp), 0);
-		if (n > 0) { 
-			buf.append(tmp, n); 
-			if (buf.size() > 10485760) {
-				return -1;
-			}
-			continue; 
-		}
-		if (n == 0) return -1;
-		return 0;
-	}
+    char tmp[8192];
+    for (;;) {
+        ssize_t n = recv(fd, tmp, sizeof(tmp), 0);
+        if (n > 0) {
+            buf.append(tmp, n);
+            continue;
+        }
+        if (n == 0) {
+            return -1; 
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return -1;
+    }
 }
+
 
 static int try_send_progress(int fd, const std::string &out, size_t &off) {
 	while (off < out.size()) {
@@ -120,8 +123,12 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
         st.out = "HTTP/1.1 100 Continue\r\n\r\n";
         st.off = 0;
         st.resp_ready = true;
+        st.expect_continue = true;
+        st.reading_body = true;      // ✅ new flag
+        st.in.clear();               // clear headers
         return ACT_WRITE | ACT_READ;
     }
+
     return ACT_READ;
 }
 
@@ -162,8 +169,25 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
     if (!st.resp_ready && (revents & POLLIN)) {
         int rr = try_recv_all_ready(fd, st.in);
         if (rr < 0) return ACT_CLOSE;
-
         st.last_activity = time(NULL);
+
+        if (st.reading_body) {
+            st.body_buf.append(st.in);
+            st.body_received += st.in.size();
+            st.in.clear();
+
+            if (st.body_expected && st.body_received >= st.body_expected) {
+                st.body_done = true;
+                st.reading_body = false;
+            }
+            want |= ACT_READ;
+            std::cerr << "[BODY] received " << st.in.size()
+                        << " bytes (total " << st.body_received
+                        << " / " << st.body_expected << ")\n";
+
+            return want;
+        }
+
 
         if (!headers_complete(st.in)) {
             want |= ACT_READ;
@@ -210,17 +234,28 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
         } else {
             st.resp_ready = false;
 
-            if (st.phase == CGI_SPAWN || st.phase == CGI_STREAM)
+            if (st.expect_continue) {
+                st.expect_continue = false;
                 want |= ACT_READ;
-            else
+            }
+            else if (st.phase == CGI_SPAWN || st.phase == CGI_STREAM) {
+                want |= ACT_READ;
+            }
+            else {
                 return ACT_CLOSE;
+            }
         }
     }
 
-    if (want == 0)
-	{
-        want = (st.phase == CGI_SPAWN || st.phase == CGI_STREAM) ? ACT_READ
-                 : (st.resp_ready ? ACT_WRITE : ACT_READ);
-	}
+    if (want == 0) {
+        if (st.reading_body && !st.body_done)
+            want = ACT_READ;
+        else if (st.phase == CGI_SPAWN || st.phase == CGI_STREAM)
+            want = ACT_READ;
+        else
+            want = (st.resp_ready ? ACT_WRITE : ACT_READ);
+    }
+
     return want;
+
 }

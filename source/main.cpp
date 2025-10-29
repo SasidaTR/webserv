@@ -317,12 +317,18 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                if (st.phase == CGI_SPAWN) {
-                    spawn_cgi(st); // sets st.cgi_{pid,in,out,*_open} and nonblocking
+                if (st.phase == CGI_SPAWN && !st.body_done) {
+                    set_events(fds, fd, POLLIN);
+                    ++i;
+                    continue;
+                }
+                if (st.phase == CGI_SPAWN && st.body_done) {
+                    spawn_cgi(st);
                     if (st.cgi_in_open)  { add_pfd(fds, st.cgi_in,  POLLOUT); g_owner[st.cgi_in]  = (FdOwner){FD_CGI_IN,  fd}; }
                     if (st.cgi_out_open) { add_pfd(fds, st.cgi_out, POLLIN);  g_owner[st.cgi_out] = (FdOwner){FD_CGI_OUT, fd}; }
                     st.phase = CGI_STREAM;
                 }
+
 
                 // Update desired events for CLIENT
                 short next = 0;
