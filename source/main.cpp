@@ -126,33 +126,61 @@ int main(int argc, char **argv) {
 
         std::map<ListenerKey, int>          lfd_by_key;   // (host,port) -> fd
         std::map<int, std::vector<size_t> > vhosts_by_fd; // fd -> server indices
-
         for (size_t i = 0; i < servers.size(); ++i) {
             const int port = std::atoi(servers[i].port.c_str());
-            const std::string chosen_host = ports_with_any.count(port)
-                                            ? "0.0.0.0" : norm_host(servers[i].host);
+            const std::string chosen_host =
+                ports_with_any.count(port) ? "0.0.0.0" : norm_host(servers[i].host);
 
             ListenerKey key(chosen_host, port);
 
-            if (!lfd_by_key.count(key)) {
-                ServerFlat tmp = servers[i];
-                tmp.host = chosen_host;
+            if (lfd_by_key.count(key)) {
+                int lfd = lfd_by_key[key];
+                bool duplicate_name = false;
 
-                int lfd = setup_server(port, tmp);
-                if (lfd == -1) throw std::runtime_error("setup_server failed");
-                g_owner[lfd] = (FdOwner){ FD_LISTENER, -1 };
+                const std::vector<size_t>& existing = vhosts_by_fd[lfd];
+                for (size_t j = 0; j < existing.size(); ++j) {
+                    size_t idx = existing[j];
+                    if (servers[idx].name == servers[i].name) {
+                        duplicate_name = true;
+                        break;
+                    }
+                }
 
-                lfd_by_key[key] = lfd;
+                if (duplicate_name) {
+                    std::cerr << "Error: duplicate server on "
+                            << chosen_host << ":" << port
+                            << " (server_name=" << servers[i].name << ")"
+                            << std::endl;
+                    throw std::runtime_error("duplicate server_name on same host:port");
+                }
 
-                listen_fds.push_back(lfd);
-                is_listener.insert(lfd);
-
-                std::cout << "Server listening at: http://" << key.host << ":" << port << "/\n";
+                vhosts_by_fd[lfd].push_back(i);
+                std::cout << "[merge] " << key.host << ":" << port
+                        << " added " << servers[i].name << std::endl;
+                continue;
             }
 
-            int lfd = lfd_by_key[key];
+            ServerFlat tmp = servers[i];
+            tmp.host = chosen_host;
+
+            int lfd = setup_server(port, tmp);
+            if (lfd == -1)
+                throw std::runtime_error("setup_server failed");
+
+            g_owner[lfd] = (FdOwner){ FD_LISTENER, -1 };
+            lfd_by_key[key] = lfd;
+
+            listen_fds.push_back(lfd);
+            is_listener.insert(lfd);
             vhosts_by_fd[lfd].push_back(i);
+
+            std::cout << "[bind] http://" << key.host << ":" << port
+                    << "/ (server_name=" << servers[i].name << ")"
+                    << std::endl;
         }
+
+
+
         listen_owner = vhosts_by_fd;
 
         std::vector<pollfd> fds;
