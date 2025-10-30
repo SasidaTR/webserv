@@ -8,20 +8,20 @@ static std::string toLower(std::string s) {
 	return s;
 }
 
-static std::string httpHeaderNameToEnvKey(std::string name) {
+static std::string httpHeaderNameToEnvKey(const std::string& name) {
+	std::string res = "HTTP_";
 	for (size_t i = 0; i < name.size(); ++i) {
-		char &c = name[i];
-		if (c == '-') c = '_';
-		else c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+		char c = name[i];
+		if (c == '-') res += '_';
+		else res += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 	}
-	return "HTTP_" + name;
+	return res;
 }
 
 static bool isAllDigits(const std::string& s) {
-	if (s.empty()) return false;
 	for (size_t i = 0; i < s.size(); ++i)
 		if (!std::isdigit(static_cast<unsigned char>(s[i]))) return false;
-	return true;
+	return !s.empty();
 }
 
 void CGIEnvironment::addBasicVariables(std::map<std::string, std::string>& env,
@@ -31,21 +31,15 @@ void CGIEnvironment::addBasicVariables(std::map<std::string, std::string>& env,
 	env["SERVER_PROTOCOL"] = "HTTP/1.1";
 	env["GATEWAY_INTERFACE"] = "CGI/1.1";
 	env["SCRIPT_FILENAME"] = scriptPath;
-	env["PATH_INFO"] = "";
+	env["PATH_INFO"] = req.getTarget(); 
 }
 
 void CGIEnvironment::addUrlVariables(std::map<std::string, std::string>& env, const Request& req) {
-	const std::string url = req.getTarget();
+	const std::string& url = req.getTarget();
 	size_t q = url.find('?');
-	if (q == std::string::npos) {
-		env["SCRIPT_NAME"] = url;
-		env["QUERY_STRING"] = "";
-		env["REQUEST_URI"] = url;
-	} else {
-		env["SCRIPT_NAME"] = url.substr(0, q);
-		env["QUERY_STRING"] = url.substr(q + 1);
-		env["REQUEST_URI"] = url;
-	}
+	env["SCRIPT_NAME"] = (q == std::string::npos ? url : url.substr(0, q));
+	env["QUERY_STRING"] = (q == std::string::npos ? "" : url.substr(q + 1));
+	env["REQUEST_URI"] = url;
 }
 
 void CGIEnvironment::addHttpHeaders(std::map<std::string, std::string>& env, const Request& req) {
@@ -56,29 +50,18 @@ void CGIEnvironment::addHttpHeaders(std::map<std::string, std::string>& env, con
 	for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
 		const std::string nameLower = toLower(it->first);
 		if (nameLower == "host") {
-			const std::string& v = it->second;
-			size_t colon = v.find(':');
-			if (colon != std::string::npos) {
-				env["SERVER_NAME"] = v.substr(0, colon);
-				env["SERVER_PORT"] = v.substr(colon + 1);
-				haveServerName = haveServerPort = true;
-			} else {
-				env["SERVER_NAME"] = v;
-				haveServerName = true;
-			}
-		} else if (nameLower == "content-type") {
-			env["CONTENT_TYPE"] = it->second;
-		} else if (nameLower == "content-length") {
-			contentLength = it->second;
-		} else if (nameLower == "transfer-encoding") {
-			transferEncoding = toLower(it->second);
-		}
+			size_t colon = it->second.find(':');
+			env["SERVER_NAME"] = (colon == std::string::npos ? it->second : it->second.substr(0, colon));
+			env["SERVER_PORT"] = (colon == std::string::npos ? "8080" : it->second.substr(colon + 1));
+			haveServerName = haveServerPort = true;
+		} else if (nameLower == "content-type") env["CONTENT_TYPE"] = it->second;
+		else if (nameLower == "content-length") contentLength = it->second;
+		else if (nameLower == "transfer-encoding") transferEncoding = toLower(it->second);
 		env[httpHeaderNameToEnvKey(it->first)] = it->second;
 	}
 
-	if (transferEncoding.find("chunked") == std::string::npos && isAllDigits(contentLength)) {
+	if (transferEncoding.find("chunked") == std::string::npos && isAllDigits(contentLength))
 		env["CONTENT_LENGTH"] = contentLength;
-	}
 
 	if (haveServerName && !haveServerPort) env["SERVER_PORT"] = "8080";
 }
@@ -98,9 +81,8 @@ std::map<std::string, std::string> CGIEnvironment::prepare(const Request& req, c
 }
 
 std::vector<char*> CGIEnvironment::createEnvArray(const std::map<std::string, std::string>& environment) {
-	static std::vector<std::string> envStrings;
-	envStrings.clear();
-
+	std::vector<std::string> envStrings;
+	envStrings.reserve(environment.size());
 	std::vector<char*> envArray;
 	envArray.reserve(environment.size() + 1);
 
