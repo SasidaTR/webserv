@@ -131,7 +131,43 @@ static size_t parseSizeString(const std::string& s) {
     return num;
 }
 
+	// if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
+	// 	resp.setStatus(301);
+	// 	resp.setRedirect(target + "/");
+	// 	return resp;
+	// }
 
+	if (req.getMethod() == "POST")
+		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+	if (req.getMethod() == "PUT")
+		return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+	if (req.getMethod() == "DELETE")
+		return DeleteHandler::handleDelete(path);
+
+	if (DirectoryHandler::isDirectory(path)) {
+		std::string index = loc ? loc->index : server.index;
+		std::string indexPath = path + "/" + index;
+
+		std::string body;
+		if (StaticFileHandler::readFile(indexPath, body)) {
+			resp.setStatus(200);
+			resp.setContentType(StaticFileHandler::getContentType(indexPath));
+			if (req.getMethod() != "HEAD")
+				resp.setBody(body);
+			return resp;
+		}
+		if (loc && loc->autoindex) {
+			std::string listing = DirectoryHandler::generateListing(path, pathOnly);
+			resp.setStatus(200);
+			resp.setContentType("text/html");
+			if (req.getMethod() != "HEAD")
+				resp.setBody(listing);
+			return resp;
+		}
+		resp.setStatus(404);
+		resp.setErrorBody(404);
+		return resp;
+	}
 
 Response Router::route(const Request& req) const {
     Response resp;
