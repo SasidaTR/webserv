@@ -1,17 +1,13 @@
 #get tests :
 curl -v http://127.0.0.1:8080/
-curl -n http://127.0.0.1:8080/fun
-
-
-
-#head tests :
-curl -I http://127.0.0.1:8080/directory/youpi.py
-curl -I HEAD http://127.0.0.1:8080/directory/youpi.sh
-curl -I http://127.0.0.1:8080
-
-#put tests :
+curl -v http://127.0.0.1:8080/fun
+curl -v http://127.0.0.1:8080/directory
+curl -v http://127.0.0.1:8080/post_body
 
 #post tests :
+dd if=/dev/zero of=post_1M.bin bs=1M count=1 + 
+curl -v --data-binary @post_1M.bin http://127.0.0.1:8080/post_body/test.bin -> build files with  \dd if=/dev/zero of=post_1M.bin bs=1M count=1\     example
+
 
 #cgi test :
 curl -v http://127.0.0.1:8080/directory/youpi.bad_extension

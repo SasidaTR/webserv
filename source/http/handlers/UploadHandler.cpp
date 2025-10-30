@@ -26,8 +26,13 @@ Response UploadHandler::handleUpload(const std::string& body,
 									const std::string& urlPath) {
 	Response resp;
 	
+	std::cerr << "[DEBUG] starting POST write...\n";
+	std::cerr << "[UPLOAD] defaultPath=" << defaultPath << std::endl;
+	std::cerr << "[UPLOAD] urlPath=" << urlPath << std::endl;
+
 	std::string uploadPath = determineUploadPath(defaultPath, loc, urlPath);
 	
+	std::cerr << "[UPLOAD] final uploadPath=" << uploadPath << std::endl;
 	std::ofstream outFile(uploadPath.c_str(), std::ios::binary);
 	if (!outFile) {
 		resp.setStatus(500);

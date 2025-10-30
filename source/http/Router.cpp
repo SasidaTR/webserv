@@ -93,47 +93,43 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 	return fullpath;
 }
 
-Response Router::route(const Request& req) const {
-	Response resp;
+#include <cctype>
+#include <cstdlib>
 
-	if (!req.isValidMethod()) {
-		resp.setStatus(501);
-		resp.setErrorBody(501);
-		return resp;
-	}
+static size_t parseSizeString(const std::string& s) {
+    if (s.empty()) return 0;
 
-	std::string target = req.getTarget();
-	size_t queryPos = target.find('?');
-	std::string pathOnly = (queryPos != std::string::npos) ? target.substr(0, queryPos) : target;
-	const Location* loc = findMatchingLocation(pathOnly);
+    // Trim spaces
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
+        ++start;
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])))
+        --end;
+    if (start >= end) return 0;
 
-	if (!checkBodySize(req, loc)) {
-		resp.setStatus(413);
-		resp.setErrorBody(413);
-		return resp;
-	}
+    // Extract numeric part
+    size_t num = 0;
+    size_t i = start;
+    while (i < end && std::isdigit(static_cast<unsigned char>(s[i]))) {
+        num = num * 10 + (s[i] - '0');
+        ++i;
+    }
 
-	if (loc && !loc->redirect_url.empty()) {
-		resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
-		resp.setRedirect(loc->redirect_url);
-		return resp;
-	}
+    // Skip optional non-alphabetic separators like "MB" or "m;"
+    while (i < end && !std::isalpha(static_cast<unsigned char>(s[i])))
+        ++i;
 
-	if (!isMethodAllowed(req, loc)) {
-		resp.setStatus(405);
-		resp.setErrorBody(405);
-		return resp;
-	}
+    // Parse unit if any
+    if (i < end) {
+        char unit = std::tolower(static_cast<unsigned char>(s[i]));
+        if (unit == 'k') num *= 1024ULL;
+        else if (unit == 'm') num *= 1024ULL * 1024ULL;
+        else if (unit == 'g') num *= 1024ULL * 1024ULL * 1024ULL;
+    }
 
-	std::string path = resolvePath(req, loc);
-
-
-	// ICI DETECT LA CGI ET RENVOIE UNE REPONSE MINIMAL
-	if (loc && cgiHandler.canHandle(req, *loc, path)) {
-		const std::string interp = !loc->cgi_path.empty() ? loc->cgi_path[0] : std::string();
-		resp.markAsCgi(path, interp);
-		return resp;
-	}
+    return num;
+}
 
 	// if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
 	// 	resp.setStatus(301);
@@ -173,8 +169,108 @@ Response Router::route(const Request& req) const {
 		return resp;
 	}
 
-	Response fileResp = StaticFileHandler::serveFile(path);
-	if (req.getMethod() == "HEAD")
-		fileResp.setBody("");
-	return fileResp;
+Response Router::route(const Request& req) const {
+    Response resp;
+
+    // ---- 1️⃣ Method validity check ----
+    if (!req.isValidMethod()) {
+        resp.setStatus(501);
+        resp.setErrorBody(501);
+        return resp;
+    }
+
+    // ---- 2️⃣ Determine path & matching location ----
+    std::string target = req.getTarget();
+    size_t queryPos = target.find('?');
+    std::string pathOnly = (queryPos != std::string::npos)
+        ? target.substr(0, queryPos)
+        : target;
+
+    const Location* loc = findMatchingLocation(pathOnly);
+
+    // ---- 3️⃣ Client body-size limit check ----
+	size_t limit = (loc) ? parseSizeString(loc->client_max_body_size) : 0;
+    size_t len   = req.contentLength(); // your getter for Content-Length
+
+    std::cerr << "[DEBUG] checkBodySize start: len=" << len
+              << " limit=" << limit << std::endl;
+
+    // Early return if body too large
+    std::cerr << "[DEBUG] client_max_body_size raw="
+          << (loc ? loc->client_max_body_size : "(null)") << std::endl;
+
+    if (limit > 0 && len > limit) {
+        std::cerr << "[DEBUG] LIMIT exceeded → returning 413 Payload Too Large\n";
+        resp.setStatus(413);
+        resp.setErrorBody(413);
+        return resp;  // 🧠 STOP HERE: do not continue further
+    }
+
+    // ---- 4️⃣ Handle redirection ----
+    if (loc && !loc->redirect_url.empty()) {
+        resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
+        resp.setRedirect(loc->redirect_url);
+        return resp;
+    }
+
+    // ---- 5️⃣ Check allowed methods ----
+    if (!isMethodAllowed(req, loc)) {
+        resp.setStatus(405);
+        resp.setErrorBody(405);
+        return resp;
+    }
+
+    // ---- 6️⃣ Resolve filesystem path ----
+    std::string path = resolvePath(req, loc);
+
+    // ---- 7️⃣ Detect & mark CGI ----
+    if (loc && cgiHandler.canHandle(req, *loc, path)) {
+        const std::string interp =
+            !loc->cgi_path.empty() ? loc->cgi_path[0] : std::string();
+        resp.markAsCgi(path, interp);
+        return resp;
+    }
+
+    // ---- 8️⃣ Upload & file operations ----
+    if (req.getMethod() == "POST")
+        return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+    if (req.getMethod() == "PUT")
+        return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
+    if (req.getMethod() == "DELETE")
+        return DeleteHandler::handleDelete(path);
+
+    // ---- 9️⃣ Directory or static file serving ----
+    if (DirectoryHandler::isDirectory(path)) {
+        std::string index = loc ? loc->index : server.index;
+        std::string indexPath = path + "/" + index;
+
+        std::string body;
+        if (StaticFileHandler::readFile(indexPath, body)) {
+            resp.setStatus(200);
+            resp.setContentType(StaticFileHandler::getContentType(indexPath));
+            if (req.getMethod() != "HEAD")
+                resp.setBody(body);
+            return resp;
+        }
+
+        if (loc && loc->autoindex) {
+            std::string listing = DirectoryHandler::generateListing(path, pathOnly);
+            resp.setStatus(200);
+            resp.setContentType("text/html");
+            if (req.getMethod() != "HEAD")
+                resp.setBody(listing);
+            return resp;
+        }
+
+        resp.setStatus(404);
+        resp.setErrorBody(404);
+        return resp;
+    }
+
+    // ---- 🔟 Serve static file ----
+    Response fileResp = StaticFileHandler::serveFile(path);
+    if (req.getMethod() == "HEAD")
+        fileResp.setBody("");
+    return fileResp;
 }
+
