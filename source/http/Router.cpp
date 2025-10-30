@@ -135,7 +135,6 @@ Response Router::route(const Request& req) const {
 		return resp;
 	}
 
-
 	// if (DirectoryHandler::isDirectory(path) && !target.empty() && target[target.size() - 1] != '/') {
 	// 	resp.setStatus(301);
 	// 	resp.setRedirect(target + "/");

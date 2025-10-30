@@ -61,7 +61,6 @@ void spawn_cgi(ConnState& st) {
 	set_nonblock_fd(st.cgi_out);
 	st.cgi_in_open = st.cgi_out_open = true;
 
-	// Écrire le corps POST entièrement dans le pipe du child
 	size_t total = 0;
 	while (total < st.body_buf.size()) {
 		ssize_t w = write(st.cgi_in, st.body_buf.data() + total, st.body_buf.size() - total);
