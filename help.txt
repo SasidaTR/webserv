@@ -20,6 +20,7 @@ curl -v http://127.0.0.1:8080/directory/youpi.bad_extension
 curl -v http://127.0.0.1:8080/directory/youpi.sh
 curl -v http://127.0.0.1:8080/put_test/youpi.sh
 curl -v http://127.0.0.1:8080/put_test/youpi.py
+curl -v http://127.0.0.1:8080/put_test/crash.py
 
 #cgi + post tests :
 curl -X POST -d "hello world" -v http://127.0.0.1:8080/directory/youpi_post.sh

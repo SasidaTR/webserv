@@ -40,14 +40,21 @@ bool CGIHandler::hasExt(const std::vector<std::string>& exts, const std::string&
 }
 
 std::string CGIHandler::pickRunner(const Location& loc, const std::string& ext) {
-	(void)ext;
-
-    if (loc.cgi_path.empty())
+    if (loc.cgi_ext.empty() || loc.cgi_path.empty())
         return "";
-    // Very simple: return first defined runner (cgi_path[0])
-    // For example: /usr/bin/python3 or ./ubuntu_cgi_tester
-    return loc.cgi_path[0];
+
+    // Find the interpreter that matches the extension
+    for (size_t i = 0; i < loc.cgi_ext.size(); ++i) {
+        if (ext == loc.cgi_ext[i]) {
+            if (i < loc.cgi_path.size())
+                return loc.cgi_path[i];
+            else
+                return ""; // no matching path
+        }
+    }
+    return ""; // extension not found
 }
+
 
 // -----------------------------------------------------------------------------
 // Main logic
