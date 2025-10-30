@@ -14,7 +14,9 @@ SRC = source/main.cpp \
 	source/configuration/getlinefd.cpp \
 	source/configuration/parseLocation.cpp \
 	source/cgi/CGIHandler.cpp \
-	source/cgi/alt_cgi.cpp
+	source/cgi/CGIEnvironment.cpp \
+	source/cgi/CGIProcess.cpp \
+	source/cgi/CGIResponseBuilder.cpp
 OBJDIR = objets
 OBJ = $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRC))
 DEP = $(OBJ:.o=.d)
