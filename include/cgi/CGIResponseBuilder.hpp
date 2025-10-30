@@ -1,19 +1,11 @@
-#ifndef CGI_RESPONSE_HPP
-#define CGI_RESPONSE_HPP
+#ifndef CGI_HTTP_HPP
+#define CGI_HTTP_HPP
 
 #include <string>
+#include <vector>
+#include <utility>
+#include "../../include/webserv.hpp"
 
-class Response;
-
-class CGIResponseBuilder {
-public:
-	static Response buildResponse(const std::string& scriptOutput);
-
-private:
-	static size_t findHeaderEnd(const std::string& scriptOutput);
-	static void parseHeaders(const std::string& headers, Response& resp);
-	static void processHeaderLine(const std::string& line, Response& resp);
-	static std::string cleanLine(const std::string& line);
-};
+void build_http_from_cgi(ConnState &st);
 
 #endif
