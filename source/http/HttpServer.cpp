@@ -124,8 +124,8 @@ static int prepare_cgi(const Request& req, const Response& resp, ConnState& st) 
         st.off = 0;
         st.resp_ready = true;
         st.expect_continue = true;
-        st.reading_body = true;      // ✅ new flag
-        st.in.clear();               // clear headers
+        st.reading_body = true;
+        st.in.clear();
         return ACT_WRITE | ACT_READ;
     }
 
@@ -158,7 +158,7 @@ static const ServerFlat& select_virtual_host(const std::vector<size_t>& candidat
                 << "' root='" << srv.root << "'\n";
     }
 
-    return fallback; // default
+    return fallback;
 }
 
 int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {

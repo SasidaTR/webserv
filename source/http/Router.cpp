@@ -3,6 +3,8 @@
 #include "../../include/http/handlers/UploadHandler.hpp"
 #include "../../include/http/handlers/DeleteHandler.hpp"
 #include "../../include/http/handlers/DirectoryHandler.hpp"
+#include <cctype>
+#include <cstdlib>
 
 Router::Router(const ServerFlat& s) : server(s) {}
 
@@ -39,7 +41,7 @@ bool Router::isMethodAllowed(const Request& req, const Location* loc) const {
 
 static size_t parseSize(const std::string& sizeStr) {
 	if (sizeStr.empty())
-		return 1048576; // 1MB default
+		return 1048576;
 	size_t value = 0;
 	size_t i = 0;
 	while (i < sizeStr.size() && sizeStr[i] >= '0' && sizeStr[i] <= '9') {
@@ -93,13 +95,9 @@ std::string Router::resolvePath(const Request& req, const Location* loc) const {
 	return fullpath;
 }
 
-#include <cctype>
-#include <cstdlib>
-
 static size_t parseSizeString(const std::string& s) {
     if (s.empty()) return 0;
 
-    // Trim spaces
     size_t start = 0;
     while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
         ++start;
@@ -108,7 +106,6 @@ static size_t parseSizeString(const std::string& s) {
         --end;
     if (start >= end) return 0;
 
-    // Extract numeric part
     size_t num = 0;
     size_t i = start;
     while (i < end && std::isdigit(static_cast<unsigned char>(s[i]))) {
@@ -116,11 +113,9 @@ static size_t parseSizeString(const std::string& s) {
         ++i;
     }
 
-    // Skip optional non-alphabetic separators like "MB" or "m;"
     while (i < end && !std::isalpha(static_cast<unsigned char>(s[i])))
         ++i;
 
-    // Parse unit if any
     if (i < end) {
         char unit = std::tolower(static_cast<unsigned char>(s[i]));
         if (unit == 'k') num *= 1024ULL;
@@ -134,14 +129,12 @@ static size_t parseSizeString(const std::string& s) {
 Response Router::route(const Request& req) const {
     Response resp;
 
-    // ---- 1️⃣ Method validity check ----
     if (!req.isValidMethod()) {
         resp.setStatus(501);
         resp.setErrorBody(501);
         return resp;
     }
 
-    // ---- 2️⃣ Determine path & matching location ----
     std::string target = req.getTarget();
     size_t queryPos = target.find('?');
     std::string pathOnly = (queryPos != std::string::npos)
@@ -150,42 +143,29 @@ Response Router::route(const Request& req) const {
 
     const Location* loc = findMatchingLocation(pathOnly);
 
-    // ---- 3️⃣ Client body-size limit check ----
 	size_t limit = (loc) ? parseSizeString(loc->client_max_body_size) : 0;
-    size_t len   = req.contentLength(); // your getter for Content-Length
-
-    std::cerr << "[DEBUG] checkBodySize start: len=" << len
-              << " limit=" << limit << std::endl;
-
-    // Early return if body too large
-    std::cerr << "[DEBUG] client_max_body_size raw="
-          << (loc ? loc->client_max_body_size : "(null)") << std::endl;
+    size_t len   = req.contentLength();
 
     if (limit > 0 && len > limit) {
-        std::cerr << "[DEBUG] LIMIT exceeded → returning 413 Payload Too Large\n";
         resp.setStatus(413);
         resp.setErrorBody(413);
-        return resp;  // 🧠 STOP HERE: do not continue further
+        return resp;
     }
 
-    // ---- 4️⃣ Handle redirection ----
     if (loc && !loc->redirect_url.empty()) {
         resp.setStatus(loc->redirect_code > 0 ? loc->redirect_code : 301);
         resp.setRedirect(loc->redirect_url);
         return resp;
     }
 
-    // ---- 5️⃣ Check allowed methods ----
     if (!isMethodAllowed(req, loc)) {
         resp.setStatus(405);
         resp.setErrorBody(405);
         return resp;
     }
 
-    // ---- 6️⃣ Resolve filesystem path ----
     std::string path = resolvePath(req, loc);
 
-    // ---- 7️⃣ Detect & mark CGI ----
     if (loc && cgiHandler.canHandle(req, *loc, path)) {
         const std::string interp =
             !loc->cgi_path.empty() ? loc->cgi_path[0] : std::string();
@@ -193,7 +173,6 @@ Response Router::route(const Request& req) const {
         return resp;
     }
 
-    // ---- 8️⃣ Upload & file operations ----
     if (req.getMethod() == "POST")
         return UploadHandler::handleUpload(req.getBody(), path, loc, pathOnly);
     if (req.getMethod() == "PUT")
@@ -201,7 +180,6 @@ Response Router::route(const Request& req) const {
     if (req.getMethod() == "DELETE")
         return DeleteHandler::handleDelete(path);
 
-    // ---- 9️⃣ Directory or static file serving ----
     if (DirectoryHandler::isDirectory(path)) {
         std::string index = loc ? loc->index : server.index;
         std::string indexPath = path + "/" + index;
@@ -229,7 +207,6 @@ Response Router::route(const Request& req) const {
         return resp;
     }
 
-    // ---- 🔟 Serve static file ----
     Response fileResp = StaticFileHandler::serveFile(path);
     if (req.getMethod() == "HEAD")
         fileResp.setBody("");

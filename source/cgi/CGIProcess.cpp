@@ -36,6 +36,7 @@ void spawn_cgi(ConnState& st) {
 	if (pid < 0) throw std::runtime_error("fork failed");
 
 	if (pid == 0) {
+
 		dup2(pin[0], 0); dup2(pout[1], 1); dup2(pout[1], 2);
 		close(pin[0]); close(pin[1]); close(pout[0]); close(pout[1]);
 
@@ -60,6 +61,8 @@ void spawn_cgi(ConnState& st) {
 	set_nonblock_fd(st.cgi_in);
 	set_nonblock_fd(st.cgi_out);
 	st.cgi_in_open = st.cgi_out_open = true;
+	st.cgi_start_time = time(NULL);
+	st.is_cgi_running = true;
 
 	size_t total = 0;
 	while (total < st.body_buf.size()) {
