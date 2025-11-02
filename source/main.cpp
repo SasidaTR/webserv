@@ -18,6 +18,8 @@ int  handle_client(int fd, short revents, const ServerFlat& s, ConnState& st);
 void spawn_cgi(ConnState& st);
 void build_http_from_cgi(ConnState& st);
 
+
+
 static inline void add_pfd(std::vector<pollfd>& fds, int fd, short ev) {
     struct pollfd p; p.fd = fd; p.events = ev; p.revents = 0; fds.push_back(p);
 }
@@ -215,26 +217,38 @@ int main(int argc, char **argv) {
 
             time_t now = time(NULL);
             for (std::map<int, ConnState>::iterator it = conns.begin(); it != conns.end();) {
-                if (now - it->second.last_activity > 80) {
+                ConnState &st = it->second;
+
+                if (now - st.last_activity > 80) {
                     std::cout << "Timeout: closing connection fd=" << it->first << "\n";
                     close(it->first);
                     client_owner.erase(it->first);
-
-                    for (size_t k = 0; k < fds.size(); ++k) {
-                        if (fds[k].fd == it->first) {
-                            fds[k] = fds.back();
-                            fds.pop_back();
-                            break;
-                        }
-                    }
-
-                    std::map<int, ConnState>::iterator tmp = it;
-                    ++it;
-                    conns.erase(tmp);
-                } else {
-                    ++it;
+                    remove_fd(fds, it->first);
+                    conns.erase(it++);
+                    continue;
                 }
+
+                if (st.is_cgi_running && (now - st.cgi_start_time > 5)) { // 5-second cap
+                    std::cerr << "[CGI TIMEOUT] killing pid=" << st.cgi_pid
+                            << " after " << (now - st.cgi_start_time) << "s\n";
+                    kill(st.cgi_pid, SIGKILL);
+                    waitpid(st.cgi_pid, NULL, 0);
+                    st.is_cgi_running = false;
+
+                    st.out =
+                        "HTTP/1.1 504 Gateway Timeout\r\n"
+                        "Content-Type: text/plain\r\n"
+                        "Content-Length: 25\r\n"
+                        "Connection: close\r\n\r\n"
+                        "CGI process took too long.\n";
+
+                    st.resp_ready = true;       // mark ready if you use this flag
+                    set_events(fds, it->first, POLLOUT);  // so poll writes next
+                }
+
+                ++it;
             }
+
 
             if (ret == 0) continue;
 
@@ -306,7 +320,6 @@ int main(int argc, char **argv) {
                 st.servers_all = &servers;
                 size_t server_idx = cand[0];
 
-                // If we are already streaming to CGI and client sent body data, shovel it to the bridge buffer.
                 if (st.phase == CGI_STREAM && (ev & POLLIN)) {
                     char buf[1<<16];
                     ssize_t n = read(fd, buf, sizeof(buf));
@@ -320,7 +333,6 @@ int main(int argc, char **argv) {
                     } else if (n == 0) {
                         st.body_done = true; // client closed upload early
                     } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                        // fatal read error → close client and any CGI pipes
                         if (st.cgi_in_open)  { close(st.cgi_in);  g_owner.erase(st.cgi_in);  remove_fd(fds, st.cgi_in); }
                         if (st.cgi_out_open) { close(st.cgi_out); g_owner.erase(st.cgi_out); remove_fd(fds, st.cgi_out); }
                         close(fd);

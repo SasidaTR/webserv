@@ -24,6 +24,8 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 
+#define CGI_TIMEOUT_MS 10000
+
 
 enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 
@@ -31,49 +33,50 @@ enum { ACT_READ = 1, ACT_WRITE = 2, ACT_CLOSE = 4 };
 struct ServerFlat;
 
 enum ConnPhase { IDLE, CGI_SPAWN, CGI_STREAM };
-
 struct ConnState {
-    std::string in;           // raw recv buffer (request bytes)
-    std::string out;          // bytes to send to client (final or interim 100)
-    size_t      off;          // write offset into 'out'
-    bool        resp_ready;   // when 'out' has something to flush
+    std::string in;
+    std::string out;
+    size_t      off;
+    bool        resp_ready;
     time_t      last_activity;
     std::string host_header;
     const std::vector<size_t>* vhost_candidates;
     const std::vector<ServerFlat>* servers_all;
 
-    std::string cgi_script;       // resolved filesystem path to script
-    std::string cgi_interpreter;  // interpreter path (e.g. /bin/sh, python3, tester)
-    std::string cgi_cwd;          // optional working dir (dirname of script)
-
+    std::string cgi_script;
+    std::string cgi_interpreter;
+    std::string cgi_cwd;
     pid_t cgi_pid;
-    int   cgi_in;                 // parent writes -> child's stdin
-    int   cgi_out;                // parent reads  <- child's stdout/stderr (merged or stdout)
+    int   cgi_in;
+    int   cgi_out;
     bool  cgi_in_open;
     bool  cgi_out_open;
+    time_t cgi_start_time;
+    bool  is_cgi_running;
 
-    std::string cgi_raw;          // raw bytes read from CGI stdout
+    std::string cgi_raw;
 
-    size_t      body_expected;    // from Content-Length (0 if absent)
-    size_t      body_received;    // how many bytes read from client so far
-    bool        chunked;          // Transfer-Encoding: chunked?
-    bool        body_done;        // set when entire body consumed (CL reached or chunked end)
-    std::string body_buf;         // bridge buffer: client -> (we write) -> CGI stdin
-    size_t      cgi_written;      // bytes already written from body_buf into cgi_in
+    size_t      body_expected;
+    size_t      body_received;
+    bool        chunked;
+    bool        body_done;
+    std::string body_buf;
+    size_t      cgi_written;
     bool        expect_continue;
     bool        reading_body;
-    std::vector<std::string> env; 
+    std::vector<std::string> env;
 
     ConnPhase   phase;
-
     int         client_fd;
 
     ConnState()
         : in(), out(), off(0), resp_ready(false),
           last_activity(time(NULL)), host_header(),
+          vhost_candidates(NULL), servers_all(NULL),
           cgi_script(), cgi_interpreter(), cgi_cwd(),
           cgi_pid(-1), cgi_in(-1), cgi_out(-1),
           cgi_in_open(false), cgi_out_open(false),
+          cgi_start_time(0), is_cgi_running(false),
           cgi_raw(),
           body_expected(0), body_received(0),
           chunked(false), body_done(true),

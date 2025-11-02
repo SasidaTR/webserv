@@ -4,9 +4,8 @@
 #include <sstream>
 #include <algorithm>
 #include <iostream>
-#include <cstdlib>   // std::strtoul
+#include <cstdlib>
 
-// --------- small helpers ---------
 static std::string trim(const std::string& s) {
 	size_t start = s.find_first_not_of(" \t\r\n");
 	size_t end   = s.find_last_not_of(" \t\r\n");
@@ -23,7 +22,6 @@ std::string Request::toLower(const std::string& s) {
 	return r;
 }
 
-// --------- chunked decoding (simple, assumes well-formed) ---------
 std::string Request::dechunkBody(const std::string& chunked) {
 	std::string result;
 	size_t pos = 0;
@@ -37,23 +35,18 @@ std::string Request::dechunkBody(const std::string& chunked) {
 		std::istringstream iss(size_str);
 		iss >> std::hex >> chunk_size;
 
-		pos = line_end + 2; // skip CRLF
+		pos = line_end + 2;
 
 		if (chunk_size == 0) {
-			// optional trailers are ignored; consume final CRLF if present
-			// (safe to stop here for our purposes)
 			break;
 		}
-
 		if (pos + chunk_size > chunked.size()) {
-			// incomplete data; return what we have (caller can append more later)
 			break;
 		}
 
 		result.append(chunked, pos, chunk_size);
 		pos += chunk_size;
 
-		// expect CRLF after chunk data
 		if (pos + 1 < chunked.size() && chunked[pos] == '\r' && chunked[pos + 1] == '\n')
 			pos += 2;
 		else
@@ -63,9 +56,7 @@ std::string Request::dechunkBody(const std::string& chunked) {
 	return result;
 }
 
-// --------- parser ---------
 bool Request::parse(const std::string& raw) {
-	// start-line
 	size_t pos = raw.find("\r\n");
 	if (pos == std::string::npos) return false;
 
@@ -73,7 +64,6 @@ bool Request::parse(const std::string& raw) {
 	std::istringstream sl(start_line);
 	if (!(sl >> method >> target >> version)) return false;
 
-	// headers
 	size_t header_end = raw.find("\r\n\r\n");
 	if (header_end == std::string::npos) return false;
 
@@ -90,7 +80,7 @@ bool Request::parse(const std::string& raw) {
 			std::string key   = trim(line.substr(0, colon));
 			std::string value = trim(line.substr(colon + 1));
 			if (!key.empty())
-				headers[toLower(key)] = value; // store with lowercase keys
+				headers[toLower(key)] = value;
 		}
 	}
 
@@ -104,8 +94,6 @@ bool Request::parse(const std::string& raw) {
 		std::ostringstream oss;
 		oss << body.size();
 		headers["content-length"]     = oss.str();
-		// keep transfer-encoding as-is or erase it; we keep it to be benign
-		// headers.erase("transfer-encoding");
 	}
 
 	return true;
@@ -130,7 +118,6 @@ std::string Request::getPathInfo() const {
 }
 
 
-// --------- accessors / helpers ---------
 std::string Request::getHeader(const std::string& key) const {
 	std::map<std::string, std::string>::const_iterator it = headers.find(toLower(key));
 	if (it != headers.end())

@@ -9,6 +9,8 @@ curl -v http://127.0.0.1:8080/bigfile.txt > temp.txt
 dd if=/dev/zero of=post_1M.bin bs=1M count=1 + 
 curl -v --data-binary @post_1M.bin http://127.0.0.1:8080/post_body/test.bin -> build files with  \dd if=/dev/zero of=post_1M.bin bs=1M count=1\     example
 
+#chunked :
+dd if=/dev/zero bs=1M count=1 | curl -v -X POST http://127.0.0.1:8080/directory/test.txt -H "Transfer-Encoding: chunked" -H "Content-Type: application/octet-stream" --data-binary @-
 
 #cgi test :
 curl -v http://127.0.0.1:8080/directory/youpi.bad_extension
