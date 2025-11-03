@@ -173,6 +173,7 @@ static const ServerFlat& select_virtual_host(const std::vector<size_t>& candidat
     return fallback;
 }
 
+
 int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
     if (revents & (POLLHUP | POLLERR | POLLNVAL)) return ACT_CLOSE;
 
@@ -184,8 +185,9 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
         st.last_activity = time(NULL);
 
         if (st.reading_body) {
+            const size_t just_added = st.in.size();
             st.body_buf.append(st.in);
-            st.body_received += st.in.size();
+            st.body_received += just_added;
             st.in.clear();
 
             if (st.body_expected && st.body_received >= st.body_expected) {
@@ -193,13 +195,11 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
                 st.reading_body = false;
             }
             want |= ACT_READ;
-            std::cerr << "[BODY] received " << st.in.size()
-                        << " bytes (total " << st.body_received
-                        << " / " << st.body_expected << ")\n";
-
+            std::cerr << "[BODY] received " << just_added
+                      << " bytes (total " << st.body_received
+                      << " / " << st.body_expected << ")\n";
             return want;
         }
-
 
         if (!headers_complete(st.in)) {
             want |= ACT_READ;
@@ -219,6 +219,7 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
                     (st.vhost_candidates && st.servers_all)
                     ? select_virtual_host(*st.vhost_candidates, *st.servers_all, req, s)
                     : s;
+
                 Router router(chosen);
                 resp = router.route(req);
 
@@ -235,7 +236,7 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
         }
     }
 
-    if (st.resp_ready && (revents & (POLLOUT | POLLIN))) {
+    if (st.resp_ready && (revents & POLLOUT)) {
         int wr = try_send_progress(fd, st.out, st.off);
         if (wr < 0) return ACT_CLOSE;
 
@@ -269,5 +270,4 @@ int handle_client(int fd, short revents, const ServerFlat& s, ConnState& st) {
     }
 
     return want;
-
 }
