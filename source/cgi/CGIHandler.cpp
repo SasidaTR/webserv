@@ -51,12 +51,8 @@ std::string CGIHandler::pickRunner(const Location& loc, const std::string& ext) 
 CGIHandler::CGIHandler() {}
 CGIHandler::~CGIHandler() {}
 
-bool CGIHandler::canHandle(const Request& req, const Location& loc, const std::string& resolvedPath) const {
+bool CGIHandler::canHandle(const Location& loc, const std::string& resolvedPath) const {
 	std::string ext = extNoDotLower(resolvedPath);
 	bool ok = hasExt(loc.cgi_ext, ext);
-	std::cerr << "[CGI canHandle] url=" << req.getTarget()
-		<< " fs=" << resolvedPath
-		<< " ext=" << ext << " → "
-		<< (ok ? "yes" : "no") << "\n";
 	return ok;
 }

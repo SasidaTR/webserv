@@ -179,7 +179,7 @@ Response Router::route(const Request& req) const {
 
     std::string path = resolvePath(req, loc);
 
-    if (loc && cgiHandler.canHandle(req, *loc, path)) {
+    if (loc && cgiHandler.canHandle(*loc, path)) {
         const std::string interp =
             !loc->cgi_path.empty() ? loc->cgi_path[0] : std::string();
         resp.markAsCgi(path, interp);

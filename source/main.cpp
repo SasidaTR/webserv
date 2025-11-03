@@ -239,8 +239,6 @@ int main(int argc, char **argv) {
                 }
 
                 if (st.is_cgi_running && (now - st.cgi_start_time > 5)) {
-                    std::cerr << "[CGI TIMEOUT] killing pid=" << st.cgi_pid
-                              << " after " << (now - st.cgi_start_time) << "s\n";
                     kill(st.cgi_pid, SIGKILL);
                     waitpid(st.cgi_pid, NULL, 0);
                     st.is_cgi_running = false;
@@ -418,7 +416,7 @@ int main(int argc, char **argv) {
                     ++i;
                     continue;
                 }
-                
+
                 if (ow.kind == FD_CGI_OUT) {
                     ConnState &st = conns[ow.client_fd];
 
