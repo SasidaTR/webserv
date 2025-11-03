@@ -163,13 +163,6 @@ static const ServerFlat& select_virtual_host(const std::vector<size_t>& candidat
         if (srv.name == host)
             return srv;
     }
-    std::cout << "[DEBUG] Host='" << host << "' candidates=" << candidates.size() << "\n";
-    for (size_t i = 0; i < candidates.size(); ++i) {
-        const ServerFlat& srv = servers[candidates[i]];
-        std::cout << "    candidate[" << i << "] name='" << srv.name
-                << "' root='" << srv.root << "'\n";
-    }
-
     return fallback;
 }
 

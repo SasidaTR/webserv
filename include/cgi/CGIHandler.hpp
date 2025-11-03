@@ -25,7 +25,7 @@ public:
 	CGIHandler();
 	~CGIHandler();
 
-	bool canHandle(const Request& req, const Location& loc, const std::string& resolvedPath) const;
+	bool canHandle(const Location& loc, const std::string& resolvedPath) const;
 
 private:
 	static std::string extNoDotLower(std::string p);

@@ -36,8 +36,6 @@ static std::string http_reason_from_code(int code) {
 
 void build_http_from_cgi(ConnState& st) {
 	const std::string& raw = st.cgi_raw;
-	std::cout << "[CGI] raw output (first 200 chars):\n" << raw.substr(0, 200) << std::endl;
-
 	size_t sep = raw.find("\r\n\r\n");
 	if (sep == std::string::npos) sep = raw.find("\n\n");
 	if (sep == std::string::npos) {

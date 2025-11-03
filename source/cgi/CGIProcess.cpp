@@ -23,20 +23,9 @@
 #include <stdexcept>
 #include "../../include/webserv.hpp"
 
-#define LOGCGI(fmt, ...) do { \
-	fprintf(stderr, "[CGI] " fmt "\n", ##__VA_ARGS__); \
-} while (0)
-
 static inline void set_nonblock_fd(int fd) {
 	int fl = fcntl(fd, F_GETFL, 0);
 	if (fl != -1) fcntl(fd, F_SETFL, fl | O_NONBLOCK);
-}
-
-void log_env_connstate(const ConnState &st) {
-	LOGCGI("=== ConnState environment (%zu entries) ===", st.env.size());
-	for (size_t i = 0; i < st.env.size(); ++i)
-		LOGCGI("env %s", st.env[i].c_str());
-	LOGCGI("=== End of ConnState environment ===");
 }
 
 void spawn_cgi(ConnState& st) {
@@ -49,7 +38,6 @@ void spawn_cgi(ConnState& st) {
         throw std::runtime_error("fork failed");
 
     if (pid == 0) {
-        // --- child ---
         dup2(pin[0], 0);
         dup2(pout[1], 1);
         dup2(pout[1], 2);
