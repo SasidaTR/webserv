@@ -40,48 +40,59 @@ void log_env_connstate(const ConnState &st) {
 }
 
 void spawn_cgi(ConnState& st) {
-	int pin[2], pout[2];
+    int pin[2], pout[2];
+    if (pipe(pin) == -1 || pipe(pout) == -1)
+        throw std::runtime_error("pipe failed");
 
-	if (pipe(pin) == -1 || pipe(pout) == -1) throw std::runtime_error("pipe failed");
+    pid_t pid = fork();
+    if (pid < 0)
+        throw std::runtime_error("fork failed");
 
-	pid_t pid = fork();
-	if (pid < 0) throw std::runtime_error("fork failed");
+    if (pid == 0) {
+        // --- child ---
+        dup2(pin[0], 0);
+        dup2(pout[1], 1);
+        dup2(pout[1], 2);
+        close(pin[0]); close(pin[1]);
+        close(pout[0]); close(pout[1]);
 
-	if (pid == 0) {
+        std::vector<char*> argv;
+        if (!st.cgi_interpreter.empty()) {
+            argv.push_back(const_cast<char*>(st.cgi_interpreter.c_str()));
+            argv.push_back(const_cast<char*>(st.cgi_script.c_str()));
+        } else {
+            argv.push_back(const_cast<char*>(st.cgi_script.c_str()));
+        }
+        argv.push_back(NULL);
 
-		dup2(pin[0], 0); dup2(pout[1], 1); dup2(pout[1], 2);
-		close(pin[0]); close(pin[1]); close(pout[0]); close(pout[1]);
+        std::vector<char*> envp;
+        for (size_t i = 0; i < st.env.size(); ++i)
+            envp.push_back(const_cast<char*>(st.env[i].c_str()));
+        envp.push_back(NULL);
 
-		std::vector<char*> argv;
-		if (!st.cgi_interpreter.empty()) { argv.push_back(const_cast<char*>(st.cgi_interpreter.c_str())); argv.push_back(const_cast<char*>(st.cgi_script.c_str())); }
-		else argv.push_back(const_cast<char*>(st.cgi_script.c_str()));
-		argv.push_back(NULL);
+        execve(argv[0], &argv[0], &envp[0]);
 
-		std::vector<char*> envp;
-		for (size_t i = 0; i < st.env.size(); ++i) envp.push_back(const_cast<char*>(st.env[i].c_str()));
-		envp.push_back(NULL);
+        const char* msg =
+            "Status: 500 Internal Server Error\r\n"
+            "Content-Type: text/plain\r\n\r\nexecve failed\n";
+        (void)!write(1, msg, std::strlen(msg));
+        _exit(127);
+    }
 
-		execve(argv[0], &argv[0], &envp[0]);
-		const char* msg = "Status: 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nexecve failed\n";
-		write(1, msg, std::strlen(msg));
-		_exit(127);
-	}
+    st.cgi_pid = pid;
 
-	st.cgi_pid = pid;
-	st.cgi_in  = pin[1];  close(pin[0]);
-	st.cgi_out = pout[0]; close(pout[1]);
-	set_nonblock_fd(st.cgi_in);
-	set_nonblock_fd(st.cgi_out);
-	st.cgi_in_open = st.cgi_out_open = true;
-	st.cgi_start_time = time(NULL);
-	st.is_cgi_running = true;
+    st.cgi_in  = pin[1];  close(pin[0]);
+    st.cgi_out = pout[0]; close(pout[1]);
 
-	size_t total = 0;
-	while (total < st.body_buf.size()) {
-		ssize_t w = write(st.cgi_in, st.body_buf.data() + total, st.body_buf.size() - total);
-		if (w > 0) total += w;
-		else if (w == -1 && errno != EAGAIN && errno != EWOULDBLOCK) break;
-	}
-	close(st.cgi_in); st.cgi_in_open = false;
+    set_nonblock_fd(st.cgi_in);
+    set_nonblock_fd(st.cgi_out);
+
+    st.cgi_in_open  = true;
+    st.cgi_out_open = true;
+    st.cgi_start_time = time(NULL);
+    st.is_cgi_running = true;
+
+    st.cgi_written = 0;
 }
+
 
