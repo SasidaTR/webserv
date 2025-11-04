@@ -155,7 +155,7 @@ size_t Request::contentLength() const {
 	const std::string &v = it->second;
 	char *endp = 0;
 	unsigned long n = std::strtoul(v.c_str(), &endp, 10);
-	if (!endp || *endp != '\0') return 0; // invalid → treat as 0
+	if (!endp || *endp != '\0') return 0;
 	return static_cast<size_t>(n);
 }
 
