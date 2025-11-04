@@ -35,6 +35,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
+#include <netdb.h>
+#include <netinet/in.h>
 
 #define CGI_TIMEOUT_MS 10000
 

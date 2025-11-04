@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "../include/webserv.hpp"
+#include <sstream>
 #include "../include/configuration/configParse.hpp"
 
 
@@ -56,7 +57,7 @@ struct ListenerKey {
 
     ListenerKey() : port(0) {}
     ListenerKey(const std::string& h, int p) : host(h), port(p) {}
-
+#include <sstream>
     bool operator<(const ListenerKey& o) const {
         if (port != o.port) return port < o.port;
         return host < o.host;
@@ -68,41 +69,51 @@ static inline std::string norm_host(const std::string& h) {
 }
 
 int setup_server(int port, const ServerFlat& s) {
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == -1) throw std::runtime_error("socket failed");
+    int server_fd = -1;
+    struct addrinfo hints;
+    struct addrinfo *res = NULL, *p = NULL;
+    std::ostringstream oss;
+    oss << port;
+    const std::string port_str = oss.str();
 
-    struct sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags    = AI_NUMERICSERV;
     if (s.host.empty())
-        addr.sin_addr.s_addr = INADDR_ANY;
-    else
-        addr.sin_addr.s_addr = inet_addr(s.host.c_str());
-    addr.sin_port = htons(port);
+        hints.ai_flags |= AI_PASSIVE;
 
-    int flags = fcntl(server_fd, F_GETFL, 0);
-    if (flags == -1 || fcntl(server_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        ::close(server_fd);
-        throw std::runtime_error("non-blocking failed");
+    int rc = getaddrinfo(s.host.empty() ? NULL : s.host.c_str(),
+                         port_str.c_str(), &hints, &res);
+    if (rc != 0)
+        throw std::runtime_error(std::string("getaddrinfo failed: ") + gai_strerror(rc));
+    for (p = res; p != NULL; p = p->ai_next) {
+        server_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (server_fd == -1) continue;
+        int yes = 1;
+        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+            ::close(server_fd); server_fd = -1; continue;
+        }
+        if (bind(server_fd, p->ai_addr, p->ai_addrlen) == -1) {
+            ::close(server_fd); server_fd = -1; continue;
+        }
+        int flags = fcntl(server_fd, F_GETFL, 0);
+        if (flags == -1 || fcntl(server_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+            ::close(server_fd); server_fd = -1; continue;
+        }
+        if (listen(server_fd, 128) == -1) {
+            ::close(server_fd); server_fd = -1; continue;
+        }
+        break;
     }
-
-    int yes = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
-        ::close(server_fd);
-        throw std::runtime_error("setsockopt failed");
-    }
-
-    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) == -1) {
-        ::close(server_fd);
-        throw std::runtime_error("bind failed");
-    }
-    if (listen(server_fd, 128) == -1) {
-        ::close(server_fd);
-        throw std::runtime_error("listen failed");
-    }
+    freeaddrinfo(res);
+    if (server_fd == -1)
+        throw std::runtime_error("setup_server: could not bind/listen on requested address");
 
     return server_fd;
 }
+
+
 
 int main(int argc, char **argv) {
     const char *config_file = "./basic.config";
